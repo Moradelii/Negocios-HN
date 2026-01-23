@@ -1013,6 +1013,15 @@ const AdminView = () => {
 
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // --- Analíticas MOCK (Derivadas de datos reales para consistencia) ---
+  const activeUsers = 1245 + businesses.length * 15;
+  const totalConversions = businesses.reduce((acc, b) => acc + (b.rating > 4.5 ? 200 : 50), 0) + 342;
+  const socialInteractivity = {
+    facebook: 420,
+    instagram: 310,
+    tiktok: 580
+  };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -1083,11 +1092,65 @@ const AdminView = () => {
 
   return (
     <div className="p-4 md:p-10 space-y-10 bg-white min-h-screen">
-      <div className="flex justify-between items-center border-b border-slate-100 pb-10">
-        <h2 className="text-4xl font-black text-[#0a2540] tracking-tighter uppercase leading-none">GESTIÓN</h2>
+      <div className="flex flex-col lg:flex-row justify-between lg:items-center border-b border-slate-100 pb-10 gap-6">
+        <div>
+          <h2 className="text-4xl font-black text-[#0a2540] tracking-tighter uppercase leading-none">GESTIÓN MAESTRA</h2>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Panel de Control y Analíticas de Plataforma</p>
+        </div>
         <div className="flex gap-4">
-          <button onClick={exportarAExcel} className="p-4 bg-green-50 rounded-2xl text-green-600" title="Exportar Excel"><Icon name="Book" /></button>
-          <button onClick={handleLogout} className="p-4 bg-slate-50 rounded-2xl text-slate-600" title="Cerrar Sesión"><Icon name="Lock" /></button>
+          <button onClick={exportarAExcel} className="p-4 bg-green-50 rounded-2xl text-green-600 shadow-sm hover:shadow-md transition-all active:scale-95" title="Exportar Excel"><Icon name="Book" /></button>
+          <button onClick={handleLogout} className="p-4 bg-slate-50 rounded-2xl text-slate-600 shadow-sm hover:shadow-md transition-all active:scale-95" title="Cerrar Sesión"><Icon name="Lock" /></button>
+        </div>
+      </div>
+
+      {/* --- DASHBOARD ANALÍTICO SUPERIOR --- */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in duration-500">
+        <div className="bg-gradient-to-br from-[#0a2540] to-[#144272] p-8 rounded-[2.5rem] text-white shadow-xl space-y-4">
+          <div className="flex justify-between items-start">
+            <div className="p-3 bg-white/10 rounded-2xl"><Icon name="Navigation" className="w-6 h-6 text-yellow-400" /></div>
+            <span className="text-[10px] font-black text-yellow-400 uppercase tracking-widest">+12%</span>
+          </div>
+          <div className="space-y-1">
+            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-60">Usuarios Activos</h4>
+            <p className="text-3xl font-black tracking-tighter leading-none">{activeUsers.toLocaleString()}</p>
+          </div>
+        </div>
+
+        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl space-y-4">
+          <div className="flex justify-between items-start">
+            <div className="p-3 bg-blue-50 rounded-2xl"><Icon name="MessageCircle" className="w-6 h-6 text-blue-600" /></div>
+            <span className="text-[10px] font-black text-green-500 uppercase tracking-widest">+8%</span>
+          </div>
+          <div className="space-y-1">
+            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-60 text-slate-400">Conversión Total</h4>
+            <p className="text-3xl font-black tracking-tighter leading-none text-[#0a2540]">{totalConversions.toLocaleString()}</p>
+          </div>
+        </div>
+
+        {/* --- GRÁFICO DE INTERACTIVIDAD --- */}
+        <div className="md:col-span-2 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl space-y-6">
+          <div className="flex items-center justify-between">
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#0a2540]">Interactividad Digital (Social)</h4>
+            <div className="flex gap-4">
+              <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-600" /><span className="text-[8px] font-black uppercase text-slate-400">FB</span></div>
+              <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-pink-500" /><span className="text-[8px] font-black uppercase text-slate-400">IG</span></div>
+              <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-slate-900" /><span className="text-[8px] font-black uppercase text-slate-400">TK</span></div>
+            </div>
+          </div>
+          <div className="flex items-end justify-between gap-4 h-32 pt-2">
+            <div className="w-full flex flex-col items-center gap-2">
+              <div className="w-full bg-blue-600 rounded-xl transition-all duration-1000" style={{ height: '70%' }}></div>
+              <span className="text-[8px] font-black text-slate-400">{socialInteractivity.facebook}</span>
+            </div>
+            <div className="w-full flex flex-col items-center gap-2">
+              <div className="w-full bg-pink-500 rounded-xl transition-all duration-1000" style={{ height: '55%' }}></div>
+              <span className="text-[8px] font-black text-slate-400">{socialInteractivity.instagram}</span>
+            </div>
+            <div className="w-full flex flex-col items-center gap-2">
+              <div className="w-full bg-slate-900 rounded-xl transition-all duration-1000" style={{ height: '90%' }}></div>
+              <span className="text-[8px] font-black text-slate-400">{socialInteractivity.tiktok}</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1096,60 +1159,73 @@ const AdminView = () => {
           <thead>
             <tr className="text-left bg-slate-50/30 border-b border-slate-100">
               <th className="py-6 px-8 text-[10px] font-black uppercase text-slate-400">Entidad</th>
+              <th className="py-6 px-4 text-[10px] font-black uppercase text-slate-400 text-center">Impacto</th>
               <th className="py-6 px-4 text-[10px] font-black uppercase text-slate-400 text-center">Estado</th>
               <th className="py-6 px-4 text-[10px] font-black uppercase text-slate-400 text-center">VIP</th>
               <th className="py-6 px-8 text-[10px] font-black uppercase text-slate-400 text-right">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {businesses.map((biz) => (
-              <tr key={biz.id} className="hover:bg-slate-50/50 group">
-                <td className="py-6 px-8">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-100 border">{biz.image ? <img src={biz.image} alt="" className="w-full h-full object-cover" /> : <Icon name="Image" className="w-6 h-6 m-3 text-slate-300" />}</div>
-                    <div><h4 className="font-black text-slate-900 uppercase text-sm truncate">{biz.name}</h4><p className="text-[10px] font-black text-slate-400 uppercase">{biz.category}</p></div>
-                  </div>
-                </td>
-                <td className="py-6 px-4 text-center">
-                  <span className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase ${biz.status === BusinessStatus.VERIFIED ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                    {biz.status.toUpperCase()}
-                  </span>
-                </td>
-                <td className="py-6 px-4 text-center">
-                  {biz.featured ? (
-                    <Icon name="Star" className="w-5 h-5 text-yellow-400 fill-current mx-auto" />
-                  ) : (
-                    <span className="text-[9px] font-black text-slate-300 uppercase">NO</span>
-                  )}
-                </td>
-                <td className="py-6 px-8 text-right relative">
-                   <div className="flex items-center justify-end gap-2">
-                    <button onClick={() => setMenuAbiertoId(menuAbiertoId === biz.id ? null : biz.id)} className={`p-2 rounded-xl transition-all ${menuAbiertoId === biz.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}><Icon name="MoreVertical" className="w-5 h-5" /></button>
-                    {menuAbiertoId === biz.id && (
-                      <div ref={menuRef} className="absolute right-20 top-0 bg-white border border-slate-100 shadow-2xl rounded-2xl p-2 z-[1000] w-48 text-left animate-in fade-in slide-in-from-right-2 duration-200">
-                        <button onClick={() => toggleStatus(biz.id)} className="w-full px-4 py-3 hover:bg-slate-50 rounded-xl flex items-center gap-3 transition-colors">
-                          <Icon name="ShieldCheck" className={`${biz.status === BusinessStatus.VERIFIED ? 'text-amber-500' : 'text-green-500'}`} />
-                          <span className="text-[11px] font-black uppercase">{biz.status === BusinessStatus.VERIFIED ? 'Desverificar' : 'Verificar'}</span>
-                        </button>
-                        <button onClick={() => toggleFeatured(biz.id)} className="w-full px-4 py-3 hover:bg-slate-50 rounded-xl flex items-center gap-3 transition-colors">
-                          <Icon name="Star" className={`${biz.featured ? 'text-slate-400' : 'text-yellow-500'}`} />
-                          <span className="text-[11px] font-black uppercase">{biz.featured ? 'Quitar VIP' : 'Destacar VIP'}</span>
-                        </button>
-                        <button onClick={() => openEditModal(biz)} className="w-full px-4 py-3 hover:bg-slate-50 rounded-xl flex items-center gap-3 transition-colors">
-                          <Icon name="Edit" className="text-blue-500" />
-                          <span className="text-[11px] font-black uppercase">Editar Info</span>
-                        </button>
-                        <div className="h-px bg-slate-50 my-1"></div>
-                        <button onClick={() => deleteBusiness(biz.id)} className="w-full px-4 py-3 hover:bg-red-50 text-red-600 rounded-xl flex items-center gap-3 transition-colors">
-                          <Icon name="Trash2" />
-                          <span className="text-[11px] font-black uppercase">Eliminar</span>
-                        </button>
+            {businesses.map((biz) => {
+              const impact = Math.floor(Math.random() * 500) + 120; // Simulación de vistas por negocio
+              return (
+                <tr key={biz.id} className="hover:bg-slate-50/50 group transition-colors">
+                  <td className="py-6 px-8">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-100 border shadow-sm">{biz.image ? <img src={biz.image} alt="" className="w-full h-full object-cover" /> : <Icon name="Image" className="w-6 h-6 m-3 text-slate-300" />}</div>
+                      <div><h4 className="font-black text-slate-900 uppercase text-xs truncate">{biz.name}</h4><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{biz.category}</p></div>
+                    </div>
+                  </td>
+                  <td className="py-6 px-4 text-center">
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-50 rounded-lg border border-slate-100">
+                        <span className="text-[11px] font-black text-[#0a2540]">{impact}</span>
+                        {impact > 300 && <Icon name="Sparkles" className="w-3 h-3 text-yellow-500 fill-current" />}
                       </div>
+                      <span className="text-[7px] font-black text-slate-300 uppercase tracking-tighter">vistas totales</span>
+                    </div>
+                  </td>
+                  <td className="py-6 px-4 text-center">
+                    <span className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${biz.status === BusinessStatus.VERIFIED ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {biz.status.toUpperCase()}
+                    </span>
+                  </td>
+                  <td className="py-6 px-4 text-center">
+                    {biz.featured ? (
+                      <div className="p-2 bg-yellow-50 rounded-xl inline-block"><Icon name="Star" className="w-4 h-4 text-yellow-400 fill-current" /></div>
+                    ) : (
+                      <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">NO</span>
                     )}
-                   </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="py-6 px-8 text-right relative">
+                    <div className="flex items-center justify-end gap-2">
+                      <button onClick={() => setMenuAbiertoId(menuAbiertoId === biz.id ? null : biz.id)} className={`p-2.5 rounded-xl transition-all ${menuAbiertoId === biz.id ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-100'}`}><Icon name="MoreVertical" className="w-5 h-5" /></button>
+                      {menuAbiertoId === biz.id && (
+                        <div ref={menuRef} className="absolute right-20 top-0 bg-white border border-slate-100 shadow-2xl rounded-2xl p-2 z-[1000] w-48 text-left animate-in fade-in slide-in-from-right-2 duration-200">
+                          <button onClick={() => toggleStatus(biz.id)} className="w-full px-4 py-3 hover:bg-slate-50 rounded-xl flex items-center gap-3 transition-colors group/opt">
+                            <Icon name="ShieldCheck" className={`${biz.status === BusinessStatus.VERIFIED ? 'text-amber-500' : 'text-green-500'} group-hover/opt:scale-110 transition-transform`} />
+                            <span className="text-[11px] font-black uppercase text-slate-600">{biz.status === BusinessStatus.VERIFIED ? 'Desverificar' : 'Verificar'}</span>
+                          </button>
+                          <button onClick={() => toggleFeatured(biz.id)} className="w-full px-4 py-3 hover:bg-slate-50 rounded-xl flex items-center gap-3 transition-colors group/opt">
+                            <Icon name="Star" className={`${biz.featured ? 'text-slate-400' : 'text-yellow-500'} group-hover/opt:scale-110 transition-transform`} />
+                            <span className="text-[11px] font-black uppercase text-slate-600">{biz.featured ? 'Quitar VIP' : 'Destacar VIP'}</span>
+                          </button>
+                          <button onClick={() => openEditModal(biz)} className="w-full px-4 py-3 hover:bg-slate-50 rounded-xl flex items-center gap-3 transition-colors group/opt">
+                            <Icon name="Edit" className="text-blue-500 group-hover/opt:scale-110 transition-transform" />
+                            <span className="text-[11px] font-black uppercase text-slate-600">Editar Info</span>
+                          </button>
+                          <div className="h-px bg-slate-50 my-1 mx-2"></div>
+                          <button onClick={() => deleteBusiness(biz.id)} className="w-full px-4 py-3 hover:bg-red-50 text-red-600 rounded-xl flex items-center gap-3 transition-colors group/opt">
+                            <Icon name="Trash2" className="group-hover/opt:scale-110 transition-transform" />
+                            <span className="text-[11px] font-black uppercase">Eliminar</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

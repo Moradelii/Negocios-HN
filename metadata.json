@@ -1,6 +1,6 @@
 {
-  "name": "Negocios-HN: La Masica",
-  "description": "Directorio profesional y marketplace de servicios para el municipio de La Masica, Honduras. Conecta residentes y turistas con negocios locales verificados.",
+  "name": "Negocios-HN",
+  "description": "Directorio profesional y marketplace de servicios para todo Honduras. Conecta residentes y extranjeros con negocios y empresas locales verificados.",
   "requestFramePermissions": [
     "geolocation"
   ]

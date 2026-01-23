@@ -2,17 +2,17 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
-// César, este cambio es el que conecta con Vercel directamente
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
+  // PEGA AQUÍ TUS LLAVES REALES (Las que sacaste de la consola de Firebase)
+  apiKey: "AIzaSyC8LbmccL8Yaq55VJoDVjdnn1aIlghmfT0",
+  authDomain: "negocios-hn-2c8ab.firebaseapp.com",
+  projectId: "negocios-hn-2c8ab",
+  storageBucket: "negocios-hn-2c8ab.firebasestorage.app",
+  messagingSenderId: "1039698963838",
+  appId: "1:1039698963838:web:3006a51b07f137790e572f",
+  measurementId: "G-YJSFM2WPJ1"
 };
 
 const app = initializeApp(firebaseConfig);
-
 export const db = getFirestore(app);
 export const storage = getStorage(app);

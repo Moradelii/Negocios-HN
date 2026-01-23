@@ -7,6 +7,10 @@ import { Icon } from './components/Icons.tsx';
 import { generateBusinessDescription } from './services/geminiService.ts';
 import * as XLSX from 'xlsx';
 
+// Firebase
+import { db } from './firebase.ts';
+import { collection, addDoc } from 'firebase/firestore';
+
 // Importaciones de Leaflet
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -763,6 +767,7 @@ const RegisterView = () => {
   const [hasConfirmedExplicitly, setHasConfirmedExplicitly] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [formData, setFormData] = useState({
     ownerName: '',
@@ -849,17 +854,44 @@ const RegisterView = () => {
     setIsGenerating(false);
   };
 
-  const handleSubmitAttempt = (e: React.FormEvent) => {
+const handleSubmitAttempt = (e: React.FormEvent) => {
     e.preventDefault();
-    const required = ['ownerName', 'dni', 'email', 'phone', 'businessName', 'ownerPassword', 'category', 'subCategory', 'description', 'address', 'whatsapp'];
-    const newErrors = required.filter(key => !formData[key as keyof typeof formData]);
-    if (!formData.image) newErrors.push('image');
-    if (newErrors.length > 0) { setErrors(newErrors); return; }
+    // Solo activamos el modal de confirmación para que el usuario esté seguro
     setShowConfirmModal(true);
   };
 
   const handleFinalSubmit = async () => {
-    setIsSaving(true);
+    setIsSaving(true); // Activa el estado de carga
+    try {
+      const negociosRef = collection(db, 'negocios');
+      
+      // Aquí usamos los nombres exactos de tu formulario (businessName)
+      await addDoc(negociosRef, {
+        name: formData.businessName,
+        owner: formData.ownerName,
+        email: formData.email,
+        phone: formData.phone,
+        whatsapp: formData.whatsapp,
+        category: formData.category,
+        address: formData.address,
+        description: formData.description,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        rating: 5.0
+      });
+
+      setShowConfirmModal(false);
+      alert("¡Éxito César! Negocio guardado en la nube.");
+      navigate('/');
+    } catch (error) {
+      console.error("Error en Firebase:", error);
+      alert("Error al conectar con la base de datos.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+    
+    // Objeto para LocalStorage (comportamiento actual)
     const newBiz: Business = {
       id: Math.random().toString(36).substr(2, 9),
       name: formData.businessName,
@@ -885,14 +917,45 @@ const RegisterView = () => {
       gallery: formData.gallery
     };
 
+    // Objeto para Firebase Firestore
+    const firestoreData = {
+      NombreNegocio: formData.businessName,
+      DNI: formData.dni,
+      WhatsApp: formData.whatsapp,
+      plan: tier,
+      Propietario: formData.ownerName,
+      Email: formData.email,
+      Telefono: formData.phone,
+      ContrasenaPropietario: formData.ownerPassword,
+      Categoria: formData.category,
+      Subcategoria: formData.subCategory,
+      Descripcion: formData.description,
+      Direccion: formData.address,
+      Facebook: formData.facebook,
+      Instagram: formData.instagram,
+      TikTok: formData.tiktok,
+      LinkAdicional: formData.otherLink,
+      ImagenPrincipal: formData.image,
+      GaleriaFotos: formData.gallery,
+      FechaRegistro: new Date().toISOString(),
+      Estado: BusinessStatus.PENDING,
+      VIP: false
+    };
+
     try {
+      // Guardar en Firebase Firestore
+      await addDoc(collection(db, 'negocios'), firestoreData);
+      
+      // Guardar en LocalStorage
       const current = getInitialData();
       saveToDB([newBiz, ...current]);
+      
       setShowConfirmModal(false);
-      alert("¡Registro exitoso! Tu negocio está en proceso de verificación.");
+      alert("¡Registro exitoso! Tu negocio ha sido guardado y está en proceso de verificación.");
       navigate('/explorer');
     } catch (err: any) {
-      alert(err.message);
+      console.error("Error al guardar en Firebase:", err);
+      alert("Error crítico al guardar en la nube: " + err.message);
     } finally {
       setIsSaving(false);
     }

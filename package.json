@@ -8,8 +8,6 @@
     "build": "tsc && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
-    "engines": {
-  "node": ">=20"
   },
   "dependencies": {
     "react": "18.3.1",

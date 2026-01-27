@@ -149,7 +149,7 @@ const HomeView = () => {
               <span className="text-yellow-400">Productos y Servicios</span> en Honduras
             </h1>
             <p className="text-slate-200 text-xs md:text-sm font-medium max-w-lg mx-auto opacity-90 px-4 leading-relaxed">
-              Encuentra negocios locales verificados y apoya la economía de nuestro municipio de forma segura y confiable.
+              Encuentra negocios verificados y apoya la economía de nuestro país de forma segura y confiable.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 px-6">
@@ -967,7 +967,7 @@ const handleSubmitAttempt = (e: React.FormEvent) => {
     <div className="bg-slate-50 min-h-screen py-12 px-4 md:px-8 space-y-12 animate-in fade-in duration-500 relative">
       <div className="max-w-4xl mx-auto text-center space-y-2">
         <h2 className="text-3xl md:text-4xl font-black text-[#001f3f] uppercase tracking-tighter">REGISTRO DE NEGOCIO</h2>
-        <p className="text-slate-500 font-medium">Únete a la Plataforma Comercial de La Masica.</p>
+        <p className="text-slate-500 font-medium">Únete a la Plataforma Comercial de Honduras.</p>
       </div>
 
       <form onSubmit={handleSubmitAttempt} className="max-w-3xl mx-auto space-y-10 pb-20">

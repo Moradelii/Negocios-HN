@@ -149,7 +149,7 @@ const HomeView = () => {
               <span className="text-yellow-400">Productos y Servicios</span> en Honduras
             </h1>
             <p className="text-slate-200 text-xs md:text-sm font-medium max-w-lg mx-auto opacity-90 px-4 leading-relaxed">
-              Encuentra negocios verificados y apoya la economía de nuestro país de forma segura y confiable.
+              Encuentra negocios locales verificados y apoya la economía de nuestro municipio de forma segura y confiable.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 px-6">
@@ -316,7 +316,7 @@ const ExplorerView = () => {
 
 const BusinessDetailView = () => {
   const { id } = useParams();
-  const [allBusinesses, setAllBusinesses] = useState<Business[]>(getInitialData);
+  const [allBusinesses, setAllBusinesses] = useState<Business[]>(getInitialData());
   const biz = allBusinesses.find(b => b.id === id);
   const navigate = useNavigate();
 
@@ -588,7 +588,7 @@ const MapView = () => {
     );
   };
 
-  const createCustomIcon = (catId: string) => {
+  const createCustomIcon = () => {
     return L.divIcon({
       html: `
         <div class="relative">
@@ -640,7 +640,7 @@ const MapView = () => {
           <Marker 
             key={biz.id} 
             position={[biz.lat, biz.lng]} 
-            icon={createCustomIcon(biz.category)}
+            icon={createCustomIcon()}
           >
             <Popup className="custom-leaflet-popup">
               <div className="w-[260px] bg-white rounded-3xl overflow-hidden shadow-2xl border border-slate-100 animate-in fade-in duration-300">
@@ -767,7 +767,6 @@ const RegisterView = () => {
   const [hasConfirmedExplicitly, setHasConfirmedExplicitly] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [formData, setFormData] = useState({
     ownerName: '',
@@ -830,16 +829,23 @@ const RegisterView = () => {
         
         if (isGallery) {
           if (formData.gallery.length < getMaxGallerySlots()) {
-            setFormData(prev => ({ ...prev, gallery: [...prev.gallery, compressed] }));
+            setFormData(prev => ({
+              ...prev,
+              gallery: [...prev.gallery, compressed]
+            }));
           } else {
             alert(`Límite de fotos para el plan ${tier.toUpperCase()} alcanzado.`);
           }
         } else {
-          setFormData(prev => ({ ...prev, image: compressed }));
+          setFormData(prev => ({
+            ...prev,
+            image: compressed
+          }));
           if (errors.includes('image')) {
             setErrors(prev => prev.filter(err => err !== 'image'));
           }
         }
+
       };
       reader.readAsDataURL(files[0]);
     }
@@ -854,18 +860,17 @@ const RegisterView = () => {
     setIsGenerating(false);
   };
 
-const handleSubmitAttempt = (e: React.FormEvent) => {
+  const handleSubmitAttempt = (e: React.FormEvent) => {
     e.preventDefault();
     // Solo activamos el modal de confirmación para que el usuario esté seguro
     setShowConfirmModal(true);
   };
 
   const handleFinalSubmit = async () => {
-    setIsSaving(true); // Activa el estado de carga
+    setIsSaving(true);
     try {
+      // Guardar en Firebase Firestore
       const negociosRef = collection(db, 'negocios');
-      
-      // Aquí usamos los nombres exactos de tu formulario (businessName)
       await addDoc(negociosRef, {
         name: formData.businessName,
         owner: formData.ownerName,
@@ -880,82 +885,41 @@ const handleSubmitAttempt = (e: React.FormEvent) => {
         rating: 5.0
       });
 
-      setShowConfirmModal(false);
-      alert("¡Éxito César! Negocio guardado en la nube.");
-      navigate('/');
-    } catch (error) {
-      console.error("Error en Firebase:", error);
-      alert("Error al conectar con la base de datos.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-    
-    // Objeto para LocalStorage (comportamiento actual)
-    const newBiz: Business = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: formData.businessName,
-      ownerPassword: formData.ownerPassword,
-      description: formData.description,
-      category: formData.category,
-      subCategory: formData.subCategory,
-      address: formData.address,
-      phone: formData.phone,
-      whatsapp: formData.whatsapp,
-      image: formData.image,
-      status: BusinessStatus.PENDING,
-      featured: false,
-      rating: 5.0,
-      hours: '08:00 AM - 05:00 PM',
-      lat: 15.6333,
-      lng: -87.1167,
-      tier: tier,
-      facebook: formData.facebook,
-      instagram: formData.instagram,
-      tiktok: formData.tiktok,
-      otherLink: formData.otherLink,
-      gallery: formData.gallery
-    };
+      // También guardar en LocalStorage para consistencia temporal
+      const newBiz: Business = {
+        id: Math.random().toString(36).substr(2, 9),
+        name: formData.businessName,
+        ownerPassword: formData.ownerPassword,
+        description: formData.description,
+        category: formData.category,
+        subCategory: formData.subCategory,
+        address: formData.address,
+        phone: formData.phone,
+        whatsapp: formData.whatsapp,
+        image: formData.image || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=800',
+        status: BusinessStatus.PENDING,
+        featured: false,
+        rating: 5.0,
+        hours: '08:00 AM - 05:00 PM',
+        lat: 15.6333,
+        lng: -87.1167,
+        tier: tier,
+        facebook: formData.facebook,
+        instagram: formData.instagram,
+        tiktok: formData.tiktok,
+        otherLink: formData.otherLink,
+        gallery: formData.gallery
+      };
 
-    // Objeto para Firebase Firestore
-    const firestoreData = {
-      NombreNegocio: formData.businessName,
-      DNI: formData.dni,
-      WhatsApp: formData.whatsapp,
-      plan: tier,
-      Propietario: formData.ownerName,
-      Email: formData.email,
-      Telefono: formData.phone,
-      ContrasenaPropietario: formData.ownerPassword,
-      Categoria: formData.category,
-      Subcategoria: formData.subCategory,
-      Descripcion: formData.description,
-      Direccion: formData.address,
-      Facebook: formData.facebook,
-      Instagram: formData.instagram,
-      TikTok: formData.tiktok,
-      LinkAdicional: formData.otherLink,
-      ImagenPrincipal: formData.image,
-      GaleriaFotos: formData.gallery,
-      FechaRegistro: new Date().toISOString(),
-      Estado: BusinessStatus.PENDING,
-      VIP: false
-    };
-
-    try {
-      // Guardar en Firebase Firestore
-      await addDoc(collection(db, 'negocios'), firestoreData);
-      
-      // Guardar en LocalStorage
       const current = getInitialData();
       saveToDB([newBiz, ...current]);
-      
+
       setShowConfirmModal(false);
       alert("¡Registro exitoso! Tu negocio ha sido guardado y está en proceso de verificación.");
       navigate('/explorer');
-    } catch (err: any) {
-      console.error("Error al guardar en Firebase:", err);
-      alert("Error crítico al guardar en la nube: " + err.message);
+    } catch (error) {
+      console.error("Error en Firebase:", error);
+      alert("Error al guardar el negocio. Intenta nuevamente.");
     } finally {
       setIsSaving(false);
     }
@@ -967,7 +931,7 @@ const handleSubmitAttempt = (e: React.FormEvent) => {
     <div className="bg-slate-50 min-h-screen py-12 px-4 md:px-8 space-y-12 animate-in fade-in duration-500 relative">
       <div className="max-w-4xl mx-auto text-center space-y-2">
         <h2 className="text-3xl md:text-4xl font-black text-[#001f3f] uppercase tracking-tighter">REGISTRO DE NEGOCIO</h2>
-        <p className="text-slate-500 font-medium">Únete a la Plataforma Comercial de Honduras.</p>
+        <p className="text-slate-500 font-medium">Únete a la Plataforma Comercial de La Masica.</p>
       </div>
 
       <form onSubmit={handleSubmitAttempt} className="max-w-3xl mx-auto space-y-10 pb-20">

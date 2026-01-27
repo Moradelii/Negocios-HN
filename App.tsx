@@ -9,7 +9,15 @@ import * as XLSX from 'xlsx';
 
 // Firebase
 import { db } from './firebase.ts';
-import { collection, addDoc } from 'firebase/firestore';
+import { 
+  collection, 
+  addDoc, 
+  query, 
+  onSnapshot, 
+  doc, 
+  updateDoc, 
+  deleteDoc 
+} from 'firebase/firestore';
 
 // Importaciones de Leaflet
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
@@ -44,6 +52,34 @@ const saveToDB = (data: Business[]) => {
     console.error("Error crítico de almacenamiento:", e);
     throw new Error("Límite de memoria alcanzado en el navegador. Intente subir imágenes más pequeñas o eliminar registros antiguos.");
   }
+};
+
+const mapFirestoreToBusiness = (doc: any): Business => {
+  const data = doc.data();
+  return {
+    id: doc.id,
+    name: data.name || '',
+    ownerPassword: data.ownerPassword || '',
+    description: data.description || '',
+    category: data.category || '',
+    subCategory: data.subCategory || '',
+    address: data.address || '',
+    phone: data.phone || '',
+    whatsapp: data.whatsapp || '',
+    image: data.image || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=800',
+    status: data.status || BusinessStatus.PENDING,
+    featured: data.VIP || false,
+    rating: data.rating || 5.0,
+    hours: data.hours || '08:00 AM - 05:00 PM',
+    lat: data.lat || 15.6333,
+    lng: data.lng || -87.1167,
+    tier: data.plan || MembershipTier.LITE,
+    facebook: data.Facebook || '',
+    instagram: data.Instagram || '',
+    tiktok: data.TikTok || '',
+    otherLink: data.LinkAdicional || '',
+    gallery: data.GaleriaFotos || []
+  };
 };
 
 // --- Utilidad para Compresión de Imágenes ---
@@ -115,7 +151,17 @@ const BusinessCard: React.FC<{ biz: Business }> = ({ biz }) => {
 // --- Vistas ---
 
 const HomeView = () => {
-  const [businesses] = useState<Business[]>(getInitialData);
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+
+  useEffect(() => {
+  const q = query(collection(db, 'negocios'));
+  const unsubscribe = onSnapshot(q, (snapshot) => {
+    const data = snapshot.docs.map(mapFirestoreToBusiness);
+    setBusinesses(data);
+    saveToDB(data);
+  });
+  return () => unsubscribe();
+}, []);
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -271,11 +317,31 @@ const HomeView = () => {
 };
 
 const ExplorerView = () => {
-  const [businesses] = useState<Business[]>(getInitialData);
+  const [businesses, setBusinesses] = useState<Business[]>([]);
   const [search, setSearch] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
+  const [loading, setLoading] = useState(true);
   const catParam = searchParams.get('category') || 'all';
   const subParam = searchParams.get('sub');
+
+  // Escuchar cambios de Firestore en tiempo real
+  useEffect(() => {
+    const q = query(collection(db, 'negocios'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(mapFirestoreToBusiness);
+      setBusinesses(data);
+      // Actualizar localStorage como backup opcional
+      saveToDB(data);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error cargando negocios:", error);
+      // Fallback a localStorage si Firebase falla
+      setBusinesses(getInitialData());
+      setLoading(false);
+    });
+
+    return () => unsubscribe(); // Limpiar suscripción al salir
+  }, []);
 
   const filtered = businesses.filter(b => {
     const matchesSearch = b.name.toLowerCase().includes(search.toLowerCase()) || b.description.toLowerCase().includes(search.toLowerCase());
@@ -288,6 +354,8 @@ const ExplorerView = () => {
     setSearch('');
     setSearchParams({});
   };
+
+  if (loading) return <div className="p-20 text-center font-black text-slate-400 uppercase tracking-widest">Cargando negocios...</div>;
 
   return (
     <div className="p-4 md:p-8 space-y-10">
@@ -1033,7 +1101,20 @@ const RegisterView = () => {
 const AdminView = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem(ADMIN_AUTH_KEY) === 'true');
   const [password, setPassword] = useState('');
-  const [businesses, setBusinesses] = useState<Business[]>(getInitialData());
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+
+  useEffect(() => {
+  const q = query(collection(db, 'negocios'));
+  const unsubscribe = onSnapshot(q, (snapshot) => {
+    const data = snapshot.docs.map(mapFirestoreToBusiness);
+    setBusinesses(data);
+    saveToDB(data);
+  }, (error) => {
+    console.error("Error en panel admin:", error);
+    setBusinesses(getInitialData());
+  });
+  return () => unsubscribe();
+}, []);
   const [menuAbiertoId, setMenuAbiertoId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBusiness, setEditingBusiness] = useState<Partial<Business> | null>(null);
@@ -1070,32 +1151,69 @@ const AdminView = () => {
 
   const saveAndRefresh = (data: Business[]) => { setBusinesses(data); saveToDB(data); };
 
-  const toggleStatus = (id: string) => {
-    const updated = businesses.map(b => b.id === id ? { ...b, status: b.status === BusinessStatus.VERIFIED ? BusinessStatus.PENDING : BusinessStatus.VERIFIED } : b);
-    saveAndRefresh(updated);
-    setMenuAbiertoId(null);
-  };
+  const toggleStatus = async (id: string) => {
+  const businessRef = doc(db, 'negocios', id);
+  const currentBiz = businesses.find(b => b.id === id);
+  const newStatus = currentBiz?.status === BusinessStatus.VERIFIED ? BusinessStatus.PENDING : BusinessStatus.VERIFIED;
+  
+  try {
+    await updateDoc(businessRef, { status: newStatus });
+    // No necesitas actualizar el estado local manualmente porque onSnapshot escuchará el cambio automáticamente
+  } catch (error) {
+    console.error("Error actualizando estado:", error);
+    alert("Error al cambiar estado");
+  }
+  setMenuAbiertoId(null);
+ };
 
-  const toggleFeatured = (id: string) => {
-    const updated = businesses.map(b => b.id === id ? { ...b, featured: !b.featured } : b);
-    saveAndRefresh(updated);
-    setMenuAbiertoId(null);
-  };
+  const toggleFeatured = async (id: string) => {
+  const businessRef = doc(db, 'negocios', id);
+  const currentBiz = businesses.find(b => b.id === id);
+  
+  try {
+    await updateDoc(businessRef, { VIP: !currentBiz?.featured });
+  } catch (error) {
+    console.error("Error actualizando VIP:", error);
+  }
+  setMenuAbiertoId(null);
+ };
 
   const openEditModal = (biz: Business) => { setEditingBusiness({ ...biz }); setIsModalOpen(true); setMenuAbiertoId(null); };
 
-  const handleSaveEdit = () => {
-    if (!editingBusiness?.id) return;
-    const updated = businesses.map(b => b.id === editingBusiness.id ? { ...b, ...editingBusiness } as Business : b);
-    saveAndRefresh(updated);
+  const handleSaveEdit = async () => {
+  if (!editingBusiness?.id) return;
+  const businessRef = doc(db, 'negocios', editingBusiness.id);
+  
+  try {
+    await updateDoc(businessRef, {
+      name: editingBusiness.name,
+      description: editingBusiness.description,
+      address: editingBusiness.address,
+      // Agrega aquí los campos que permitas editar
+    });
     setIsModalOpen(false);
     setEditingBusiness(null);
-  };
+    alert("Cambios guardados correctamente");
+  } catch (error) {
+    console.error("Error guardando:", error);
+    alert("Error al guardar cambios");
+  }
+};
 
-  const deleteBusiness = (id: string) => { 
-    if (confirm('¿Eliminar este negocio?')) { saveAndRefresh(businesses.filter(b => b.id !== id)); }
-    setMenuAbiertoId(null); 
-  };
+  const deleteBusiness = async (id: string) => { 
+  if (confirm('¿Eliminar este negocio?')) { 
+    try {
+      await deleteDoc(doc(db, 'negocios', id));
+    } catch (error) {
+      console.error("Error eliminando:", error);
+      alert("Error al eliminar");
+    }
+  }
+  setMenuAbiertoId(null); 
+};
+
+// Agregar import de deleteDoc
+
 
   const exportarAExcel = () => {
     const ws = XLSX.utils.json_to_sheet(businesses.map(b => ({ ID: b.id, Nombre: b.name, Categoría: b.category, Estado: b.status, VIP: b.featured ? 'SÍ' : 'NO' })));

@@ -155,7 +155,7 @@ const BusinessCard: React.FC<{ biz: Business }> = ({ biz }) => {
     </Link>
   );
 };
-
+ 
 // --- Vistas ---
 
 const HomeView = () => {

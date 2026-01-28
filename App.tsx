@@ -924,20 +924,11 @@ const RegisterView = () => {
         
         if (isGallery) {
           if (formData.gallery.length < getMaxGallerySlots()) {
-            setFormData(prev => ({
-              ...prev,
-              gallery: [...prev.gallery, compressed]
-            }));
-          } else {
-            alert(`Límite de fotos para el plan ${tier.toUpperCase()} alcanzado.`);
+            setFormData(prev => ({...prev, gallery: [...prev.gallery, compressed]}));
+          } else {alert(`Límite de fotos para el plan ${tier.toUpperCase()} alcanzado.`);
           }
-        } else {
-          setFormData(prev => ({
-            ...prev,
-            image: compressed
-          }));
-          if (errors.includes('image')) {
-            setErrors(prev => prev.filter(err => err !== 'image'));
+        } else {setFormData(prev => ({...prev, image: compressed}));
+          if (errors.includes('image')) {setErrors(prev => prev.filter(err => err !== 'image'));
           }
         }
 
@@ -962,29 +953,28 @@ const RegisterView = () => {
   };
 
   const handleFinalSubmit = async () => {
-    setIsSaving(true);
-    try {
-      // Guardar en Firebase Firestore
-      const negociosRef = collection(db, 'negocios');
-      await addDoc(negociosRef, {
-        name: formData.businessName,
-        owner: formData.ownerName,
-        email: formData.email,
-        phone: formData.phone,
-        whatsapp: formData.whatsapp,
-        category: formData.category,
-		subCategory: formData.subCategory, // AGREGAR ESTO
-        address: formData.address,
-        description: formData.description,
-        status: 'pending',
-        createdAt: new Date().toISOString(),
-        rating: 5.0
-		image: formData.image || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=800',
-		ImagenPrincipal: formData.image || '',
-		GaleriaFotos: formData.gallery || [],
-		ownerPassword: formData.ownerPassword, // Importante para el problema 5
-		VIP: false
-      });
+  setIsSaving(true);
+  try {
+    const negociosRef = collection(db, 'negocios');
+    await addDoc(negociosRef, {
+      name: formData.businessName,
+      owner: formData.ownerName,
+      email: formData.email,
+      phone: formData.phone,
+      whatsapp: formData.whatsapp,
+      category: formData.category,
+      subCategory: formData.subCategory,
+      address: formData.address,
+      description: formData.description,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      rating: 5.0,  // ← COMA AGREGADA
+      image: formData.image || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=800',
+      ImagenPrincipal: formData.image || '',
+      GaleriaFotos: formData.gallery || [],
+      ownerPassword: formData.ownerPassword,
+      VIP: false
+    });
 
       // También guardar en LocalStorage para consistencia temporal
       const newBiz: Business = {

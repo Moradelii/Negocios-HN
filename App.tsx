@@ -180,6 +180,25 @@ const HomeView = () => {
 
   const selectedCategory = CATEGORIES.find(c => c.id === selectedCatId);
 
+  const [subcatSearch, setSubcatSearch] = useState('');
+  
+  // Dentro del modal de selectedCategory, antes del grid de subcategorías:
+<input 
+  type="text" 
+  placeholder="Buscar subcategoría..." 
+  className="w-full mb-4 p-3 border rounded-xl text-sm"
+  value={subcatSearch}
+  onChange={(e) => setSubcatSearch(e.target.value)}
+/>
+
+// Filtrar subcategorías:
+{selectedCategory.subCategories
+  .filter(sub => sub.name.toLowerCase().includes(subcatSearch.toLowerCase()))
+  .map(sub => (
+    <Link key={sub.id} to={`/explorer?category=${selectedCategory.id}&sub=${sub.id}`}>
+      {sub.name}
+    </Link>
+
   const handleScroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
       const scrollAmount = 300;
@@ -954,11 +973,17 @@ const RegisterView = () => {
         phone: formData.phone,
         whatsapp: formData.whatsapp,
         category: formData.category,
+		subCategory: formData.subCategory, // AGREGAR ESTO
         address: formData.address,
         description: formData.description,
         status: 'pending',
         createdAt: new Date().toISOString(),
         rating: 5.0
+		image: formData.image || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=800',
+		ImagenPrincipal: formData.image || '',
+		GaleriaFotos: formData.gallery || [],
+		ownerPassword: formData.ownerPassword, // Importante para el problema 5
+		VIP: false
       });
 
       // También guardar en LocalStorage para consistencia temporal
@@ -1007,14 +1032,14 @@ const RegisterView = () => {
     <div className="bg-slate-50 min-h-screen py-12 px-4 md:px-8 space-y-12 animate-in fade-in duration-500 relative">
       <div className="max-w-4xl mx-auto text-center space-y-2">
         <h2 className="text-3xl md:text-4xl font-black text-[#001f3f] uppercase tracking-tighter">REGISTRO DE NEGOCIO</h2>
-        <p className="text-slate-500 font-medium">Únete a la Plataforma Comercial de La Masica.</p>
+        <p className="text-slate-500 font-medium">Únete a la Primera Plataforma Comercial de Honduras.</p>
       </div>
 
       <form onSubmit={handleSubmitAttempt} className="max-w-3xl mx-auto space-y-10 pb-20">
         <section className="bg-white rounded-[2.5rem] shadow-xl p-8 md:p-10 border border-slate-100 space-y-8">
           <div className="flex items-center gap-3">
              <div className="w-1.5 h-6 bg-yellow-400 rounded-full" />
-             <h3 className="text-sm font-black text-[#001f3f] uppercase tracking-widest">PLANES Y PROPIETARIO</h3>
+             <h3 className="text-sm font-black text-[#001f3f] uppercase tracking-widest">Seleccione su Plan</h3>
           </div>
           <div className="flex bg-slate-50 p-2 rounded-2xl gap-2">
             {[MembershipTier.LITE, MembershipTier.PLUS, MembershipTier.PRO].map(t => (

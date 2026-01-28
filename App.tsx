@@ -57,29 +57,36 @@ const saveToDB = (data: Business[]) => {
 
 const mapFirestoreToBusiness = (doc: any): Business => {
   const data = doc.data();
+  
+  // Imagen por defecto si no hay imagen en Firestore
+  const defaultImage = 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=800';
+  
   return {
     id: doc.id,
     name: data.name || '',
-    ownerPassword: data.ownerPassword || '',
-    description: data.description || '',
-    category: data.category || '',
-    subCategory: data.subCategory || '',
-    address: data.address || '',
-    phone: data.phone || '',
-    whatsapp: data.whatsapp || '',
-    image: data.image || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=800',
-    status: data.status || BusinessStatus.PENDING,
-    featured: data.VIP || false,
+    ownerPassword: data.ownerPassword || data.ContrasenaPropietario || '',
+    description: data.description || data.Descripcion || '',
+    category: data.category || data.Categoria || '',
+    subCategory: data.subCategory || data.Subcategoria || '',
+    address: data.address || data.Direccion || '',
+    phone: data.phone || data.Telefono || '',
+    whatsapp: data.whatsapp || data.WhatsApp || '',
+    image: data.image || data.ImagenPrincipal || defaultImage,
+    // CORREGIDO: Conversión de string a enum
+    status: data.status?.toString().toLowerCase() === 'verified' 
+      ? BusinessStatus.VERIFIED 
+      : BusinessStatus.PENDING,
+    featured: data.VIP || data.featured || false,
     rating: data.rating || 5.0,
     hours: data.hours || '08:00 AM - 05:00 PM',
     lat: data.lat || 15.6333,
     lng: data.lng || -87.1167,
-    tier: data.plan || MembershipTier.LITE,
-    facebook: data.Facebook || '',
-    instagram: data.Instagram || '',
-    tiktok: data.TikTok || '',
-    otherLink: data.LinkAdicional || '',
-    gallery: data.GaleriaFotos || []
+    tier: data.plan || data.tier || MembershipTier.LITE,
+    facebook: data.Facebook || data.facebook || '',
+    instagram: data.Instagram || data.instagram || '',
+    tiktok: data.TikTok || data.tiktok || '',
+    otherLink: data.LinkAdicional || data.otherLink || '',
+    gallery: data.GaleriaFotos || data.gallery || []
   };
 };
 
@@ -348,7 +355,7 @@ const ExplorerView = () => {
     const matchesSearch = b.name.toLowerCase().includes(search.toLowerCase()) || b.description.toLowerCase().includes(search.toLowerCase());
     const matchesCat = catParam === 'all' || b.category === catParam;
     const matchesSub = !subParam || b.subCategory === subParam;
-    return matchesSearch && matchesCat && matchesSub && b.status === BusinessStatus.VERIFIED;
+    return matchesSearch && matchesCat && matchesSub; // Quitado: && b.status === BusinessStatus.VERIFIED
   });
 
   const clearFilters = () => {

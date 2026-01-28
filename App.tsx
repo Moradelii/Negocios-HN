@@ -6,6 +6,7 @@ import { MOCK_BUSINESSES } from './constants.tsx';
 import { Icon } from './components/Icons.tsx';
 import { generateBusinessDescription } from './services/geminiService.ts';
 import * as XLSX from 'xlsx';
+import './index.css';
 
 // Firebase
 import { db } from './firebase.ts';

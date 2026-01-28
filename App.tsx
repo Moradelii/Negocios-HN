@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+//import './index.css';//
 import { HashRouter, Routes, Route, Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Layout } from './components/Layout.tsx';
 import { CATEGORIES, Business, BusinessStatus, MembershipTier } from './types.ts';
@@ -6,7 +7,6 @@ import { MOCK_BUSINESSES } from './constants.tsx';
 import { Icon } from './components/Icons.tsx';
 import { generateBusinessDescription } from './services/geminiService.ts';
 import * as XLSX from 'xlsx';
-import './index.css';
 
 // Firebase
 import { db } from './firebase.ts';

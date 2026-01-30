@@ -370,20 +370,23 @@ const ExplorerView = () => {
     return () => unsubscribe(); // Limpiar suscripción al salir
   }, []);
 
-  const filteredBusinesses = businesses.filter(biz => {
-  // 1. Normalizamos el texto de búsqueda y los datos del negocio
-  const searchLower = searchQuery.toLowerCase().trim();
-  const bizName = (biz.name || "").toLowerCase();
-  const bizDesc = (biz.description || "").toLowerCase();
-  const bizCat = (biz.category || "").toLowerCase();
+ const filteredBusinesses = businesses.filter(biz => {
+  // 1. Limpiamos el texto de búsqueda (quita espacios y pasa a minúsculas)
+  const query = searchQuery.toLowerCase().trim();
+  
+  // 2. Definimos qué campos vamos a revisar
+  const name = (biz.name || "").toLowerCase();
+  const desc = (biz.description || "").toLowerCase();
+  const cat = (biz.category || "").toLowerCase();
+  const subCat = (biz.subCategory || "").toLowerCase(); // Importante para Diseño Gráfico
 
-  // 2. Verificamos si coincide con la búsqueda
-  const matchesSearch = bizName.includes(searchLower) || 
-                        bizDesc.includes(searchLower) || 
-                        bizCat.includes(searchLower);
+  // 3. ¿Coincide con el texto escrito?
+  const matchesSearch = name.includes(query) || desc.includes(query) || cat.includes(query) || subCat.includes(query);
 
-  // 3. Verificamos si coincide con la categoría seleccionada
-  const matchesCategory = selectedCategory === 'all' || biz.category === selectedCategory;
+  // 4. ¿Coincide con la categoría del icono seleccionado?
+  const matchesCategory = selectedCategory === 'all' || 
+                          cat === selectedCategory || 
+                          subCat === selectedCategory;
 
   return matchesSearch && matchesCategory;
 });

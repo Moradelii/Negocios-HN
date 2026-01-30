@@ -370,25 +370,30 @@ const ExplorerView = () => {
     return () => unsubscribe(); // Limpiar suscripción al salir
   }, []);
 
- const filteredBusinesses = businesses.filter(biz => {
-  // 1. Limpiamos el texto de búsqueda (quita espacios y pasa a minúsculas)
+const filteredBusinesses = businesses.filter(biz => {
+  // 1. Limpiamos los textos de búsqueda y selección
   const query = searchQuery.toLowerCase().trim();
-  
-  // 2. Definimos qué campos vamos a revisar
+  const selected = selectedCategory.toLowerCase().trim();
+
+  // 2. Extraemos los datos usando los nombres EXACTOS de tu Firebase
   const name = (biz.name || "").toLowerCase();
   const desc = (biz.description || "").toLowerCase();
-  // Cambia esto en tu bloque de filteredBusinesses
-  const cat = (biz.Categoría || biz.category || "").toLowerCase(); // Busca ambos por si acaso
-  const subCat = (biz.Subcategoría || biz.subCategory || "").toLowerCase(); // <--- USA EL NOMBRE CON TILDE // Importante para Diseño Gráfico
+  const cat = (biz.Categoría || biz.category || "").toLowerCase();
+  const subCat = (biz.Subcategoría || biz.subCategory || "").toLowerCase();
 
-  // 3. ¿Coincide con el texto escrito?
-  const matchesSearch = name.includes(query) || desc.includes(query) || cat.includes(query) || subCat.includes(query);
+  // 3. ¿Coincide con el buscador de texto?
+  const matchesSearch = query === "" || 
+                        name.includes(query) || 
+                        desc.includes(query) || 
+                        cat.includes(query) || 
+                        subCat.includes(query);
 
-  // 4. ¿Coincide con la categoría del icono seleccionado?
- // En lugar de comparar exacto (===), buscamos si uno contiene al otro
-const matchesCategory = selectedCategory === 'all' || 
-                        biz.category.toLowerCase().includes(selectedCategory.toLowerCase()) ||
-                        biz.subCategory?.toLowerCase().includes(selectedCategory.toLowerCase());
+  // 4. ¿Coincide con la categoría del botón?
+  // Usamos las variables 'cat' y 'subCat' que ya tienen el dato de Firebase
+  const matchesCategory = selected === 'all' || 
+                          cat.includes(selected) || 
+                          subCat.includes(selected) ||
+                          selected.includes(cat);
 
   return matchesSearch && matchesCategory;
 });

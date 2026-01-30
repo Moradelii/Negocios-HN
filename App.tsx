@@ -377,8 +377,9 @@ const ExplorerView = () => {
   // 2. Definimos qué campos vamos a revisar
   const name = (biz.name || "").toLowerCase();
   const desc = (biz.description || "").toLowerCase();
-  const cat = (biz.category || "").toLowerCase();
-  const subCat = (biz.subCategory || "").toLowerCase(); // Importante para Diseño Gráfico
+  // Cambia esto en tu bloque de filteredBusinesses
+  const cat = (biz.Categoría || biz.category || "").toLowerCase(); // Busca ambos por si acaso
+  const subCat = (biz.Subcategoría || biz.subCategory || "").toLowerCase(); // <--- USA EL NOMBRE CON TILDE // Importante para Diseño Gráfico
 
   // 3. ¿Coincide con el texto escrito?
   const matchesSearch = name.includes(query) || desc.includes(query) || cat.includes(query) || subCat.includes(query);

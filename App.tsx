@@ -384,9 +384,10 @@ const ExplorerView = () => {
   const matchesSearch = name.includes(query) || desc.includes(query) || cat.includes(query) || subCat.includes(query);
 
   // 4. ¿Coincide con la categoría del icono seleccionado?
-  const matchesCategory = selectedCategory === 'all' || 
-                          cat === selectedCategory || 
-                          subCat === selectedCategory;
+ // En lugar de comparar exacto (===), buscamos si uno contiene al otro
+const matchesCategory = selectedCategory === 'all' || 
+                        biz.category.toLowerCase().includes(selectedCategory.toLowerCase()) ||
+                        biz.subCategory?.toLowerCase().includes(selectedCategory.toLowerCase());
 
   return matchesSearch && matchesCategory;
 });

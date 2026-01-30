@@ -371,13 +371,18 @@ const ExplorerView = () => {
   }, []);
 
   const filteredBusinesses = businesses.filter(biz => {
-  // 1. Buscamos por texto (Nombre o Categoría)
-  const matchesSearch = 
-    biz.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    biz.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    biz.description.toLowerCase().includes(searchQuery.toLowerCase());
+  // 1. Normalizamos el texto de búsqueda y los datos del negocio
+  const searchLower = searchQuery.toLowerCase().trim();
+  const bizName = (biz.name || "").toLowerCase();
+  const bizDesc = (biz.description || "").toLowerCase();
+  const bizCat = (biz.category || "").toLowerCase();
 
-  // 2. Filtramos por la categoría seleccionada
+  // 2. Verificamos si coincide con la búsqueda
+  const matchesSearch = bizName.includes(searchLower) || 
+                        bizDesc.includes(searchLower) || 
+                        bizCat.includes(searchLower);
+
+  // 3. Verificamos si coincide con la categoría seleccionada
   const matchesCategory = selectedCategory === 'all' || biz.category === selectedCategory;
 
   return matchesSearch && matchesCategory;

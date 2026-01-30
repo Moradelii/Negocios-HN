@@ -370,17 +370,18 @@ const ExplorerView = () => {
     return () => unsubscribe(); // Limpiar suscripción al salir
   }, []);
 
-  const filtered = businesses.filter(b => {
-    const matchesSearch = b.name.toLowerCase().includes(search.toLowerCase()) || b.description.toLowerCase().includes(search.toLowerCase());
-    const matchesCat = catParam === 'all' || b.category === catParam;
-    const matchesSub = !subParam || b.subCategory === subParam;
-    return matchesSearch && matchesCat && matchesSub; // Quitado: && b.status === BusinessStatus.VERIFIED
-  });
+  const filteredBusinesses = businesses.filter(biz => {
+  // 1. Buscamos por texto (Nombre o Categoría)
+  const matchesSearch = 
+    biz.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    biz.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    biz.description.toLowerCase().includes(searchQuery.toLowerCase());
 
-  const clearFilters = () => {
-    setSearch('');
-    setSearchParams({});
-  };
+  // 2. Filtramos por la categoría seleccionada
+  const matchesCategory = selectedCategory === 'all' || biz.category === selectedCategory;
+
+  return matchesSearch && matchesCategory;
+});
 
   if (loading) return <div className="p-20 text-center font-black text-slate-400 uppercase tracking-widest">Cargando negocios...</div>;
 

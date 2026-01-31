@@ -230,8 +230,8 @@ export const CATEGORIES: Category[] = [
     subCategories: [
       { id: 'consultorias-estrategicas', name: 'Consultorías (estratégica, tecnológica, marketing)' },
       { id: 'diseno-web', name: 'Diseño y desarrollo Web' },
-      { id: 'diseno-grafico-prof', name: 'Diseño Gráfico' },
-      { id: 'foto-profesional', name: 'Fotografía profesional' },
+      { id: 'diseno-grafico-prof', name: 'Diseño Gráfico, Diseño y desarrollo Web, Edición de videos, Motion Flyers, Logos, Banners' },
+      { id: 'foto-profesional', name: 'Fotografía profesional, Edición de videos' },
       { id: 'traduccion', name: 'Traducción e interpretación' },
       { id: 'marketing-digital', name: 'Servicios de marketing digital' },
       { id: 'contenido', name: 'Creación de contenido' },

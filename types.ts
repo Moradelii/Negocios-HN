@@ -95,6 +95,7 @@ export const CATEGORIES: Category[] = [
     icon: 'HeartPulse', 
     subCategories: [
       { id: 'hospitales', name: 'Hospitales' },
+      { id: 'farmacias', name: 'Farmacias, medicamentos' },
       { id: 'clinicas-medicas', name: 'Clínicas médicas' },
       { id: 'clinicas-dentales', name: 'Clínicas dentales' },
       { id: 'psicologos', name: 'Psicólogos y terapeutas' },

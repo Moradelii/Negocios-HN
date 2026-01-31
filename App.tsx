@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-//import './index.css';//
+import './index.css';
 import { HashRouter, Routes, Route, Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Layout } from './components/Layout.tsx';
 import { CATEGORIES, Business, BusinessStatus, MembershipTier } from './types.ts';
@@ -9,7 +9,7 @@ import { generateBusinessDescription } from './services/geminiService.ts';
 import * as XLSX from 'xlsx';
 
 // Firebase
-import { db } from './firebase.ts';
+import { db, storage } from './firebase.ts';
 import { 
   collection, 
   addDoc, 
@@ -19,12 +19,13 @@ import {
   updateDoc, 
   deleteDoc 
 } from 'firebase/firestore';
+import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 
 // Importaciones de Leaflet
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
-// --- Configuración Global de Leaflet para evitar errores de iconos perdidos ---
+// --- Configuración Global de Leaflet ---
 const DefaultIcon = L.icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
@@ -35,6 +36,7 @@ L.Marker.prototype.options.icon = DefaultIcon;
 
 const DB_KEY = 'negocios_hn_local_db_stable';
 const ADMIN_AUTH_KEY = 'negocios_hn_admin_session';
+const ADMIN_PASSWORD = 'Mora0105'; // TODO: Mover a variable de entorno (.env)
 
 const getInitialData = (): Business[] => {
   try {
@@ -51,28 +53,25 @@ const saveToDB = (data: Business[]) => {
     localStorage.setItem(DB_KEY, JSON.stringify(data));
   } catch (e) {
     console.error("Error crítico de almacenamiento:", e);
-    throw new Error("Límite de memoria alcanzado en el navegador. Intente subir imágenes más pequeñas o eliminar registros antiguos.");
+    throw new Error("Límite de memoria alcanzado.");
   }
 };
 
 const mapFirestoreToBusiness = (doc: any): Business => {
   const data = doc.data();
-  
-  // Imagen por defecto si no hay imagen en Firestore
   const defaultImage = 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=800';
   
   return {
     id: doc.id,
     name: data.name || '',
-    ownerPassword: data.ownerPassword || data.ContrasenaPropietario || '',
-    description: data.description || data.Descripcion || '',
-    category: data.category || data.Categoria || '',
-    subCategory: data.subCategory || data.Subcategoria || '',
-    address: data.address || data.Direccion || '',
-    phone: data.phone || data.Telefono || '',
-    whatsapp: data.whatsapp || data.WhatsApp || '',
-    image: data.image || data.ImagenPrincipal || defaultImage,
-    // CORREGIDO: Conversión de string a enum
+    ownerPassword: data.ownerPassword || '',
+    description: data.description || '',
+    category: data.category || '',
+    subCategory: data.subCategory || '',
+    address: data.address || '',
+    phone: data.phone || '',
+    whatsapp: data.whatsapp || '',
+    image: data.image || defaultImage,
     status: data.status?.toString().toLowerCase() === 'verified' 
       ? BusinessStatus.VERIFIED 
       : BusinessStatus.PENDING,
@@ -81,16 +80,15 @@ const mapFirestoreToBusiness = (doc: any): Business => {
     hours: data.hours || '08:00 AM - 05:00 PM',
     lat: data.lat || 15.6333,
     lng: data.lng || -87.1167,
-    tier: data.plan || data.tier || MembershipTier.LITE,
-    facebook: data.Facebook || data.facebook || '',
-    instagram: data.Instagram || data.instagram || '',
-    tiktok: data.TikTok || data.tiktok || '',
-    otherLink: data.LinkAdicional || data.otherLink || '',
-    gallery: data.GaleriaFotos || data.gallery || []
+    tier: data.tier || MembershipTier.LITE,
+    facebook: data.facebook || '',
+    instagram: data.instagram || '',
+    tiktok: data.tiktok || '',
+    otherLink: data.otherLink || '',
+    gallery: data.gallery || []
   };
 };
 
-// --- Utilidad para Compresión de Imágenes ---
 const compressImage = (base64: string, maxWidth = 800, quality = 0.6): Promise<string> => {
   return new Promise((resolve) => {
     const img = new Image();
@@ -120,7 +118,42 @@ const compressImage = (base64: string, maxWidth = 800, quality = 0.6): Promise<s
   });
 };
 
-// --- Componentes ---
+// --- Subir imagen a Firebase Storage ---
+// Subir imagen a Cloudinary (reemplaza Firebase Storage)
+const uploadImageToCloudinary = async (base64Image: string, folder: string = 'businesses'): Promise<string> => {
+  if (!base64Image || !base64Image.startsWith('data:')) {
+    // Si ya es una URL (no base64), devolverla tal cual
+    return base64Image;
+  }
+  
+  const cloudName = 'dvaapavvt'; // Tu cloud name
+  const uploadPreset = 'negocios_hn'; // El nombre que creaste arriba
+  
+  const formData = new FormData();
+  formData.append('file', base64Image);
+  formData.append('upload_preset', uploadPreset);
+  formData.append('folder', folder);
+  
+  try {
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Imagen subida a Cloudinary:', data.secure_url);
+    return data.secure_url; // URL segura HTTPS
+    
+  } catch (error) {
+    console.error('Error subiendo a Cloudinary:', error);
+    alert('Error al subir imagen. Intenta con una más pequeña.');
+    throw error;
+  }
+};
 
 const BusinessCard: React.FC<{ biz: Business }> = ({ biz }) => {
   const category = CATEGORIES.find(c => c.id === biz.category);
@@ -156,48 +189,30 @@ const BusinessCard: React.FC<{ biz: Business }> = ({ biz }) => {
   );
 };
 
-// --- Vistas ---
-
+// --- HomeView Corregido ---
 const HomeView = () => {
   const [businesses, setBusinesses] = useState<Business[]>([]);
-
-  useEffect(() => {
-  const q = query(collection(db, 'negocios'));
-  const unsubscribe = onSnapshot(q, (snapshot) => {
-    const data = snapshot.docs.map(mapFirestoreToBusiness);
-    setBusinesses(data);
-    saveToDB(data);
-  });
-  return () => unsubscribe();
-}, []);
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
+  const [subcatSearch, setSubcatSearch] = useState(''); // Importante: inicializa vacío
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const q = query(collection(db, 'negocios'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(mapFirestoreToBusiness);
+      setBusinesses(data);
+      saveToDB(data);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const featuredBusinesses = businesses
     .filter(b => b.featured && b.status === BusinessStatus.VERIFIED)
     .slice(0, 6);
 
+  // Buscar la categoría seleccionada
   const selectedCategory = CATEGORIES.find(c => c.id === selectedCatId);
-
-  const [subcatSearch, setSubcatSearch] = useState('');
-  
-  // Dentro del modal de selectedCategory, antes del grid de subcategorías:
-<input 
-  type="text" 
-  placeholder="Buscar subcategoría..." 
-  className="w-full mb-4 p-3 border rounded-xl text-sm"
-  value={subcatSearch}
-  onChange={(e) => setSubcatSearch(e.target.value)}
-/>
-
-// Filtrar subcategorías:
-{selectedCategory.subCategories
-  .filter(sub => sub.name.toLowerCase().includes(subcatSearch.toLowerCase()))
-  .map(sub => (
-    <Link key={sub.id} to={`/explorer?category=${selectedCategory.id}&sub=${sub.id}`}>
-      {sub.name}
-    </Link>
 
   const handleScroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
@@ -211,6 +226,7 @@ const HomeView = () => {
 
   return (
     <div className="animate-in fade-in duration-700 w-full overflow-hidden">
+      {/* HERO SECTION */}
       <section className="relative min-h-[350px] h-[50vh] md:h-[55vh] flex items-center justify-center overflow-hidden px-4">
         <div className="absolute inset-0 z-0">
           <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=2000" className="w-full h-full object-cover brightness-[0.5]" alt="Honduras" />
@@ -222,26 +238,28 @@ const HomeView = () => {
               <span className="text-yellow-400">Productos y Servicios</span> en Honduras
             </h1>
             <p className="text-slate-200 text-xs md:text-sm font-medium max-w-lg mx-auto opacity-90 px-4 leading-relaxed">
-              Encuentra negocios locales verificados y apoya la economía de nuestro municipio de forma segura y confiable.
+              Encuentra negocios locales verificados y apoya la economía de nuestro municipio.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 px-6">
-            <button onClick={() => navigate('/explorer')} className="w-full sm:w-auto px-7 py-3 bg-yellow-400 text-[#0a2540] rounded-2xl font-black text-xs uppercase tracking-widest transition-all hover:scale-105 active:scale-95 flex items-center justify-center shadow-xl">Explorar Directorio <Icon name="ChevronRight" className="ml-2 w-4 h-4" /></button>
-            <button onClick={() => navigate('/register')} className="w-full sm:w-auto px-7 py-3 bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-white/20 active:scale-95">Publicar Negocio</button>
+            <button onClick={() => navigate('/explorer')} className="w-full sm:w-auto px-7 py-3 bg-yellow-400 text-[#0a2540] rounded-2xl font-black text-xs uppercase tracking-widest transition-all hover:scale-105 active:scale-95 flex items-center justify-center shadow-xl">
+              Explorar Directorio <Icon name="ChevronRight" className="ml-2 w-4 h-4" />
+            </button>
+            <button onClick={() => navigate('/register')} className="w-full sm:w-auto px-7 py-3 bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-white/20 active:scale-95">
+              Publicar Negocio
+            </button>
           </div>
         </div>
       </section>
 
-      {/* Seccion de Categorias Mejorada: Carrusel Horizontal con Flechas de Navegación */}
+      {/* CATEGORÍAS - CARRUSEL */}
       <section className="py-10 px-4 md:px-6 max-w-7xl mx-auto overflow-hidden group">
         <div className="flex items-center justify-between mb-8">
           <h3 className="text-lg md:text-2xl font-black text-[#0a2540] uppercase tracking-tighter">Explorar por categoría</h3>
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:block">Usa las flechas o desliza para ver más</span>
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:block">Selecciona un icono para ver especialidades</span>
         </div>
         
-        {/* Contenedor Relativo para Flechas */}
         <div className="relative">
-          {/* Flecha Izquierda */}
           <button 
             onClick={() => handleScroll('left')}
             className="absolute -left-2 top-8 z-20 w-10 h-10 bg-white/90 backdrop-blur shadow-xl rounded-full flex items-center justify-center text-[#0a2540] border border-slate-100 transition-all hover:scale-110 active:scale-90 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto"
@@ -249,7 +267,6 @@ const HomeView = () => {
             <Icon name="ArrowLeft" className="w-5 h-5" />
           </button>
 
-          {/* Flecha Derecha */}
           <button 
             onClick={() => handleScroll('right')}
             className="absolute -right-2 top-8 z-20 w-10 h-10 bg-white/90 backdrop-blur shadow-xl rounded-full flex items-center justify-center text-[#0a2540] border border-slate-100 transition-all hover:scale-110 active:scale-90 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto"
@@ -257,7 +274,6 @@ const HomeView = () => {
             <Icon name="ChevronRight" className="w-5 h-5" />
           </button>
 
-          {/* Carrusel Horizontal */}
           <div 
             ref={scrollRef}
             className="flex overflow-x-auto pb-6 scrollbar-hide gap-6 -mx-4 px-4 scroll-smooth"
@@ -265,7 +281,10 @@ const HomeView = () => {
             {CATEGORIES.map(cat => (
               <button 
                 key={cat.id}
-                onClick={() => setSelectedCatId(cat.id)}
+                onClick={() => {
+                  setSelectedCatId(cat.id);
+                  setSubcatSearch(''); // Limpiar búsqueda al abrir
+                }}
                 className="flex-none w-24 flex flex-col items-center gap-3 group/item"
               >
                 <div className="w-16 h-16 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 transition-all group-hover/item:bg-blue-600 group-hover/item:text-white group-hover/item:shadow-lg group-hover/item:scale-110">
@@ -280,50 +299,111 @@ const HomeView = () => {
         </div>
       </section>
 
-      {/* Modal Emergente de Subcategorías */}
-      {selectedCategory && (
-        <div className="fixed inset-0 bg-[#0a2540]/60 backdrop-blur-sm z-[2000] flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-8 md:p-10 space-y-6 shadow-2xl relative animate-in zoom-in-95 duration-300">
-            <button 
-              onClick={() => setSelectedCatId(null)}
-              className="absolute top-6 right-6 p-2 text-slate-400 hover:text-red-500 transition-colors"
-            >
-              <Icon name="X" className="w-6 h-6" />
-            </button>
-            
-            <div className="flex items-center gap-4 mb-2">
-              <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl shadow-sm">
-                <Icon name={selectedCategory.icon} className="w-8 h-8" />
-              </div>
-              <div>
-                <h4 className="text-2xl font-black text-[#0a2540] uppercase tracking-tight leading-none">{selectedCategory.name}</h4>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Selecciona una especialidad</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-              <Link 
-                to={`/explorer?category=${selectedCategory.id}`} 
-                className="col-span-full px-6 py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest text-center shadow-lg hover:bg-blue-700 transition-all active:scale-95"
-                onClick={() => setSelectedCatId(null)}
-              >
-                Ver Todo en esta categoría
-              </Link>
-              {selectedCategory.subCategories.map(sub => (
-                <Link 
-                  key={sub.id} 
-                  to={`/explorer?category=${selectedCategory.id}&sub=${sub.id}`} 
-                  className="px-5 py-4 bg-slate-50 text-slate-600 border border-slate-100 rounded-2xl text-[10px] font-bold uppercase tracking-tight text-center hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all"
-                  onClick={() => setSelectedCatId(null)}
-                >
-                  {sub.name}
-                </Link>
-              ))}
-            </div>
+      {/* MODAL DE SUBCATEGORÍAS */}
+{selectedCategory && (
+  <div className="fixed inset-0 bg-[#0a2540]/60 backdrop-blur-sm z-[2000] flex items-center justify-center p-4 animate-in fade-in duration-300">
+    <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-8 md:p-10 space-y-6 shadow-2xl relative animate-in zoom-in-95 duration-300 max-h-[80vh] flex flex-col">
+      
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl shadow-sm">
+            <Icon name={selectedCategory.icon} className="w-8 h-8" />
+          </div>
+          <div>
+            <h4 className="text-2xl font-black text-[#0a2540] uppercase tracking-tight leading-none">{selectedCategory.name}</h4>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+              {selectedCategory.subCategories?.length || 0} especialidades
+            </p>
           </div>
         </div>
-      )}
+        <button 
+          onClick={() => {
+            setSelectedCatId(null);
+            setSubcatSearch('');
+          }} 
+          className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+        >
+          <Icon name="X" className="w-6 h-6" />
+        </button>
+      </div>
 
+      {/* Buscador CORREGIDO */}
+      <div className="relative">
+        <Icon name="Search" className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+        <input 
+          type="text" 
+          placeholder="Buscar especialidad..." 
+          className="w-full p-4 pl-12 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-600/10 bg-slate-50"
+          value={subcatSearch}
+          onChange={(e) => {
+            setSubcatSearch(e.target.value);
+          }}
+        />
+        {subcatSearch && (
+          <button 
+            onClick={() => setSubcatSearch('')} 
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+          >
+            <Icon name="X" className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Lista de Subcategorías CON FILTRO FUNCIONAL */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto flex-1 min-h-0">
+        
+        {/* Opción: Ver Todo */}
+        <Link 
+          to={`/explorer?category=${selectedCategory.id}`} 
+          className="col-span-full px-6 py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest text-center shadow-lg hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-2"
+          onClick={() => {
+            setSelectedCatId(null);
+            setSubcatSearch('');
+          }}
+        >
+          <Icon name="Grid" className="w-4 h-4" />
+          Ver Todo en {selectedCategory.name}
+        </Link>
+        
+        {/* FILTRADO FUNCIONAL */}
+        {selectedCategory.subCategories
+          ?.filter(sub => {
+            // Si no hay texto de búsqueda, mostrar todo
+            if (!subcatSearch || subcatSearch.trim() === '') return true;
+            // Filtrar por nombre (ignorando mayúsculas)
+            return sub.name.toLowerCase().includes(subcatSearch.toLowerCase().trim());
+          })
+          ?.map(sub => (
+            <Link 
+              key={sub.id} 
+              to={`/explorer?category=${selectedCategory.id}&sub=${sub.id}`} 
+              className="px-5 py-4 bg-slate-50 text-slate-600 border border-slate-100 rounded-2xl text-[10px] font-bold uppercase tracking-tight text-center hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all active:scale-95"
+              onClick={() => {
+                setSelectedCatId(null);
+                setSubcatSearch('');
+              }}
+            >
+              {sub.name}
+            </Link>
+        ))}
+
+        {/* Mensaje si no hay coincidencias en el buscador */}
+        {subcatSearch && selectedCategory.subCategories?.filter(sub => 
+          sub.name.toLowerCase().includes(subcatSearch.toLowerCase().trim())
+        ).length === 0 && (
+          <div className="col-span-full py-8 text-center text-slate-400">
+            <Icon name="SearchX" className="w-8 h-8 mx-auto mb-2" />
+            <p className="text-xs font-bold">No se encontró "{subcatSearch}"</p>
+            <p className="text-[10px]">Prueba con otra palabra</p>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
+
+      {/* DESTACADOS */}
       <section className="py-12 px-4 md:px-6 max-w-7xl mx-auto border-t border-slate-100 mt-4">
         <div className="flex flex-col md:flex-row justify-between items-end gap-3 mb-10">
           <div className="space-y-1">
@@ -343,6 +423,7 @@ const HomeView = () => {
   );
 };
 
+// --- ExplorerView Corregido ---
 const ExplorerView = () => {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [search, setSearch] = useState('');
@@ -351,52 +432,51 @@ const ExplorerView = () => {
   const catParam = searchParams.get('category') || 'all';
   const subParam = searchParams.get('sub');
 
-  // Escuchar cambios de Firestore en tiempo real
   useEffect(() => {
     const q = query(collection(db, 'negocios'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(mapFirestoreToBusiness);
       setBusinesses(data);
-      // Actualizar localStorage como backup opcional
       saveToDB(data);
       setLoading(false);
     }, (error) => {
       console.error("Error cargando negocios:", error);
-      // Fallback a localStorage si Firebase falla
       setBusinesses(getInitialData());
       setLoading(false);
     });
-
-    return () => unsubscribe(); // Limpiar suscripción al salir
+    return () => unsubscribe();
   }, []);
 
-const filteredBusinesses = businesses.filter(biz => {
-  // 1. Limpiamos los textos de búsqueda y selección
-  const query = searchQuery.toLowerCase().trim();
-  const selected = selectedCategory.toLowerCase().trim();
+  const filtered = businesses.filter(b => {
+    const matchesSearch = b.name.toLowerCase().includes(search.toLowerCase()) || 
+                         b.description.toLowerCase().includes(search.toLowerCase()) ||
+                         b.address.toLowerCase().includes(search.toLowerCase());
+    const matchesCat = catParam === 'all' || b.category?.toLowerCase() === catParam.toLowerCase();
+    
+    // Filtro de subcategoría: comparación flexible (por id O por nombre)
+    let matchesSub = true;
+    if (subParam) {
+      const subParamLower = subParam.toLowerCase();
+      // Buscar el nombre de la subcategoría desde CATEGORIES
+      let subName = '';
+      for (const cat of CATEGORIES) {
+        const found = cat.subCategories?.find(s => s.id.toLowerCase() === subParamLower);
+        if (found) { subName = found.name.toLowerCase(); break; }
+      }
+      const bizSubLower = (b.subCategory || '').toLowerCase();
+      matchesSub = bizSubLower === subParamLower || 
+                   (subName && bizSubLower === subName) ||
+                   bizSubLower.includes(subParamLower) ||
+                   (subName && bizSubLower.includes(subName));
+    }
+    
+    return matchesSearch && matchesCat && matchesSub;
+  });
 
-  // 2. Extraemos los datos usando los nombres EXACTOS de tu Firebase
-  const name = (biz.name || "").toLowerCase();
-  const desc = (biz.description || "").toLowerCase();
-  const cat = (biz.Categoría || biz.category || "").toLowerCase();
-  const subCat = (biz.Subcategoría || biz.subCategory || "").toLowerCase();
-
-  // 3. ¿Coincide con el buscador de texto?
-  const matchesSearch = query === "" || 
-                        name.includes(query) || 
-                        desc.includes(query) || 
-                        cat.includes(query) || 
-                        subCat.includes(query);
-
-  // 4. ¿Coincide con la categoría del botón?
-  // Usamos las variables 'cat' y 'subCat' que ya tienen el dato de Firebase
-  const matchesCategory = selected === 'all' || 
-                          cat.includes(selected) || 
-                          subCat.includes(selected) ||
-                          selected.includes(cat);
-
-  return matchesSearch && matchesCategory;
-});
+  const clearFilters = () => {
+    setSearch('');
+    setSearchParams({});
+  };
 
   if (loading) return <div className="p-20 text-center font-black text-slate-400 uppercase tracking-widest">Cargando negocios...</div>;
 
@@ -406,7 +486,7 @@ const filteredBusinesses = businesses.filter(biz => {
         <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Explorar Negocios</h2>
         <div className="relative w-full max-w-md">
           <Icon name="Search" className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-          <input type="text" placeholder="Buscar por nombre o servicio..." className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3.5 pl-12 pr-6 font-bold focus:ring-2 focus:ring-blue-600/10 transition-all outline-none" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input type="text" placeholder="Buscar por nombre..." className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3.5 pl-12 pr-6 font-bold focus:ring-2 focus:ring-blue-600/10 transition-all outline-none" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
       </div>
       
@@ -417,46 +497,225 @@ const filteredBusinesses = businesses.filter(biz => {
       ) : (
         <div className="py-20 text-center space-y-4">
           <Icon name="Search" className="w-12 h-12 text-slate-200 mx-auto" />
-          <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">No hay resultados para esta búsqueda</p>
-          <button onClick={clearFilters} className="text-blue-600 font-black uppercase text-[10px] tracking-widest hover:underline">Ver todos los negocios</button>
+          <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">No hay resultados</p>
+          <button onClick={clearFilters} className="text-blue-600 font-black uppercase text-[10px] tracking-widest hover:underline">Ver todos</button>
         </div>
       )}
     </div>
   );
 };
 
+// --- BusinessDetailView Corregido con Firestore ---
 const BusinessDetailView = () => {
   const { id } = useParams();
-  const [allBusinesses, setAllBusinesses] = useState<Business[]>(getInitialData());
-  const biz = allBusinesses.find(b => b.id === id);
-  const navigate = useNavigate();
-
+  const [biz, setBiz] = useState<Business | null>(null);
+  const [loading, setLoading] = useState(true);
   const [passwordInput, setPasswordInput] = useState('');
   const [isAuth, setIsAuth] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<Business> | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [lightboxCaption, setLightboxCaption] = useState<string>('');
+  const [lightboxLoading, setLightboxLoading] = useState(false);
+  const navigate = useNavigate();
 
+  // Ref para acceder a biz actual dentro del keyboard handler sin dep array
+  const bizRef = useRef<Business | null>(null);
+  bizRef.current = biz;
+
+  // --- Firestore listener ---
+  useEffect(() => {
+    if (!id) return;
+    const unsubscribe = onSnapshot(
+      doc(db, 'negocios', id),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          setBiz(mapFirestoreToBusiness(docSnap));
+        } else {
+          setBiz(null);
+        }
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error cargando negocio:", error);
+        setLoading(false);
+      }
+    );
+    return () => unsubscribe();
+  }, [id]);
+
+  // --- Keyboard handler para lightbox (DEBE estar antes de cualquier return) ---
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    const currentBiz = bizRef.current;
+    if (!currentBiz?.gallery) return;
+
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setLightboxIndex(null);
+        setLightboxCaption('');
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        const gallery = bizRef.current?.gallery;
+        if (!gallery) return;
+        setLightboxIndex(prev => {
+          if (prev === null) return prev;
+          const dir = e.key === 'ArrowLeft' ? -1 : 1;
+          return (prev + dir + gallery.length) % gallery.length;
+        });
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [lightboxIndex]);
+
+  // Cuando cambia lightboxIndex, generar caption (si está abierto)
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    const currentBiz = bizRef.current;
+    if (!currentBiz) return;
+
+    let cancelled = false;
+    setLightboxCaption('');
+    setLightboxLoading(true);
+
+    (async () => {
+      try {
+        const catName = CATEGORIES.find(c => c.id === currentBiz.category)?.name || 'negocio';
+        const prompt = `Eres un asistente comercial. El negocio se llama "${currentBiz.name}" y está en la categoría "${catName}". Su descripción es: "${currentBiz.description}". Esta es la imagen número ${lightboxIndex + 1} de su galería. Escribe una descripción corta y atractiva (máximo 2 oraciones) de lo que probablemente muestra esta imagen en relación con los productos o servicios del negocio.`;
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 150,
+            messages: [{ role: "user", content: prompt }]
+          })
+        });
+        if (response.ok && !cancelled) {
+          const data = await response.json();
+          const text = data.content?.find((b: any) => b.type === 'text')?.text || '';
+          setLightboxCaption(text.trim());
+        }
+      } catch {
+        if (!cancelled) setLightboxCaption('');
+      }
+      if (!cancelled) setLightboxLoading(false);
+    })();
+
+    return () => { cancelled = true; };
+  }, [lightboxIndex]);
+
+  // --- Early returns (después de TODOS los hooks) ---
+  if (loading) return <div className="p-20 text-center font-black text-slate-400 uppercase tracking-widest">Cargando...</div>;
   if (!biz) return <div className="p-20 text-center font-black text-slate-400 uppercase tracking-widest">Negocio no encontrado</div>;
 
   const category = CATEGORIES.find(c => c.id === biz.category);
 
+  const openLightbox = (index: number) => {
+    setLightboxIndex(index);
+  };
+
+  const closeLightbox = () => {
+    setLightboxIndex(null);
+    setLightboxCaption('');
+  };
+
+  const navigateLightbox = (dir: number) => {
+    if (lightboxIndex === null || !biz.gallery) return;
+    const next = (lightboxIndex + dir + biz.gallery.length) % biz.gallery.length;
+    setLightboxIndex(next);
+  };
+
   const handleVerify = () => {
-    if (passwordInput === biz.ownerPassword) {
+    const inputTrimmed = passwordInput.trim();
+    const storedPassword = (biz.ownerPassword || '').trim();
+    
+    if (!storedPassword) {
+      alert("Este negocio no tiene contraseña configurada. Contacte al administrador.");
+      return;
+    }
+    
+    if (inputTrimmed === storedPassword) {
       setIsAuth(true);
       setEditData({ ...biz });
     } else {
-      alert("Contraseña incorrecta");
+      alert("Contraseña incorrecta. Intente de nuevo.");
+      setPasswordInput('');
     }
   };
 
-  const handleSaveEdit = () => {
+  // Límite de galería según tier
+  const getOwnerMaxGallery = () => {
+    switch (biz?.tier) {
+      case MembershipTier.LITE: return 3;   // 4 total - 1 portada
+      case MembershipTier.PLUS: return 7;   // 8 total - 1 portada
+      case MembershipTier.PRO: return 14;   // 15 total - 1 portada
+      default: return 3;
+    }
+  };
+
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!editData) return;
-    const updated = allBusinesses.map(b => b.id === id ? { ...b, ...editData } as Business : b);
-    saveToDB(updated);
-    setAllBusinesses(updated);
-    setIsEditing(false);
-    alert("Información actualizada correctamente");
-    navigate(0); // Recarga la página para refrescar los datos
+    const files = e.target.files;
+    if (!files || !files[0]) return;
+    if ((editData.gallery?.length || 0) >= getOwnerMaxGallery()) {
+      alert(`Límite de fotos alcanzado para tu plan (${getOwnerMaxGallery()} en galería).`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const compressed = await compressImage(reader.result as string);
+      setEditData(prev => ({ ...prev, gallery: [...(prev?.gallery || []), compressed] }));
+    };
+    reader.readAsDataURL(files[0]);
+  };
+
+  const removeGalleryImage = (index: number) => {
+    if (!editData) return;
+    setEditData(prev => ({ ...prev, gallery: (prev?.gallery || []).filter((_, i) => i !== index) }));
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editData || !id) return;
+    try {
+      const businessRef = doc(db, 'negocios', id);
+      
+      // Subir imagen principal si es base64
+      let imageUrl = editData.image;
+      if (editData.image?.startsWith('data:')) {
+        imageUrl = await uploadImageToCloudinary(editData.image, `businesses/${id}/${Date.now()}`);
+      }
+
+      // Subir imágenes nuevas de galería que sean base64
+      const galleryUrls: string[] = [];
+      for (const img of (editData.gallery || [])) {
+        if (img.startsWith('data:')) {
+          const url = await uploadImageToCloudinary(img, `businesses/${id}/gallery_${Date.now()}_${Math.random().toString(36).slice(2,7)}`);
+          galleryUrls.push(url);
+        } else {
+          galleryUrls.push(img); // Ya es URL de Cloudinary
+        }
+      }
+
+      await updateDoc(businessRef, {
+        name: editData.name,
+        description: editData.description,
+        address: editData.address,
+        subCategory: editData.subCategory,
+        phone: editData.phone,
+        whatsapp: editData.whatsapp,
+        image: imageUrl,
+        hours: editData.hours,
+        gallery: galleryUrls
+      });
+      
+      setIsEditing(false);
+      alert("Información actualizada correctamente");
+    } catch (error) {
+      console.error("Error actualizando:", error);
+      alert("Error al guardar cambios");
+    }
   };
 
   return (
@@ -464,7 +723,9 @@ const BusinessDetailView = () => {
       <div className="relative h-[45vh] md:h-[60vh] w-full overflow-hidden">
         <img src={biz.image} className="w-full h-full object-cover transition-transform duration-1000 hover:scale-105" alt={biz.name} />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0a2540]/90 via-transparent to-black/20" />
-        <button onClick={() => navigate(-1)} className="absolute top-6 left-6 p-4 bg-white/20 backdrop-blur-2xl rounded-2xl text-white shadow-2xl border border-white/20 hover:bg-white/30 transition-all active:scale-95 z-50"><Icon name="ArrowLeft" className="w-5 h-5" /></button>
+        <button onClick={() => navigate(-1)} className="absolute top-6 left-6 p-4 bg-white/20 backdrop-blur-2xl rounded-2xl text-white shadow-2xl border border-white/20 hover:bg-white/30 transition-all active:scale-95 z-50">
+          <Icon name="ArrowLeft" className="w-5 h-5" />
+        </button>
         <div className="absolute bottom-16 left-6 md:left-12 right-6 z-10 space-y-3">
            <div className="flex items-center gap-3">
               <span className="px-3 py-1 bg-yellow-400 text-[#0a2540] rounded-lg text-[9px] font-black uppercase tracking-[0.2em] shadow-lg">{category?.name}</span>
@@ -482,7 +743,6 @@ const BusinessDetailView = () => {
                 <div className="flex items-center gap-3"><div className="w-1 h-6 bg-blue-600 rounded-full" /><h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600">Descripción</h3></div>
                 <p className="text-base md:text-lg text-slate-600 leading-relaxed font-medium bg-slate-50 p-6 rounded-3xl border border-slate-100/50">{biz.description}</p>
                 
-                {/* Sección de Acceso Propietario integrada en la descripción */}
                 <div className="mt-12 pt-10 border-t border-slate-100/50">
                   <div className="bg-slate-50/50 rounded-[2rem] p-6 border border-slate-100">
                     {!isAuth ? (
@@ -492,33 +752,21 @@ const BusinessDetailView = () => {
                           <input 
                             type="password" 
                             placeholder="Contraseña del Propietario" 
-                            className="w-full bg-white border border-slate-200 py-3 pl-11 pr-4 rounded-xl font-bold text-xs outline-none focus:ring-2 focus:ring-blue-600/10"
-                            value={passwordInput}
+                            className="w-full bg-white border border-slate-200 py-3 pl-11 pr-4 rounded-xl font-bold text-xs outline-none focus:ring-2 focus:ring-blue-600/10" 
+                            value={passwordInput} 
                             onChange={(e) => setPasswordInput(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleVerify(); } }}
                           />
                         </div>
-                        <button 
-                          onClick={handleVerify}
-                          className="w-full md:w-auto px-8 py-3 bg-[#0a2540] text-yellow-400 rounded-xl font-black uppercase text-[9px] tracking-widest shadow-lg active:scale-95 transition-all"
-                        >
-                          Gestionar Mi Negocio
-                        </button>
+                        <button onClick={handleVerify} className="w-full md:w-auto px-8 py-3 bg-[#0a2540] text-yellow-400 rounded-xl font-black uppercase text-[9px] tracking-widest shadow-lg active:scale-95 transition-all">Gestionar Mi Negocio</button>
                       </div>
                     ) : (
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600">
-                            <Icon name="ShieldCheck" className="w-5 h-5" />
-                          </div>
+                          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600"><Icon name="ShieldCheck" className="w-5 h-5" /></div>
                           <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Acceso Verificado</span>
                         </div>
-                        <button 
-                          onClick={() => setIsEditing(true)}
-                          className="px-8 py-3 bg-blue-600 text-white rounded-xl font-black uppercase text-[9px] tracking-widest shadow-xl active:scale-95 transition-all flex items-center gap-2"
-                        >
-                          <Icon name="Edit" className="w-4 h-4" />
-                          Editar Información
-                        </button>
+                        <button onClick={() => setIsEditing(true)} className="px-8 py-3 bg-blue-600 text-white rounded-xl font-black uppercase text-[9px] tracking-widest shadow-xl active:scale-95 transition-all flex items-center gap-2"><Icon name="Edit" className="w-4 h-4" />Editar</button>
                       </div>
                     )}
                   </div>
@@ -527,12 +775,26 @@ const BusinessDetailView = () => {
 
               {biz.gallery && biz.gallery.length > 0 && (
                 <div className="space-y-8 pt-4">
-                  <div className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="w-1 h-6 bg-blue-600 rounded-full" /><h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600">Galería de Negocio</h3></div><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{biz.gallery.length} fotos</span></div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3"><div className="w-1 h-6 bg-blue-600 rounded-full" /><h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600">Galería</h3></div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{biz.gallery.length} fotos</span>
+                  </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 md:gap-6">
                     {biz.gallery.map((img, index) => (
-                      <div key={index} className="aspect-square rounded-[2rem] overflow-hidden shadow-md border border-slate-100 group bg-slate-50 transition-all hover:shadow-xl hover:-translate-y-1">
+                      <button 
+                        key={index} 
+                        type="button"
+                        onClick={() => openLightbox(index)}
+                        className="aspect-square rounded-[2rem] overflow-hidden shadow-md border border-slate-100 group bg-slate-50 transition-all hover:shadow-xl hover:-translate-y-1 relative"
+                      >
                         <img src={img} alt={`Foto ${index + 1}`} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                      </div>
+                        {/* Magnify hint */}
+                        <div className="absolute inset-0 bg-[#0a2540]/0 group-hover:bg-[#0a2540]/30 transition-all flex items-center justify-center">
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 backdrop-blur p-2.5 rounded-xl shadow-lg">
+                            <Icon name="Maximize2" className="w-5 h-5 text-[#0a2540]" />
+                          </div>
+                        </div>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -556,18 +818,18 @@ const BusinessDetailView = () => {
                   <div className="space-y-6">
                     <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600">Contacto</h3>
                     <div className="flex flex-col gap-4">
-                      <a href={`tel:${biz.phone}`} className="w-full py-5 bg-[#0a2540] text-yellow-400 rounded-2xl font-black flex items-center justify-center gap-3 transition-all hover:shadow-2xl active:scale-95 uppercase text-[10px] tracking-widest border border-white/10"><Icon name="Phone" className="w-4 h-4" /> Iniciar Llamada</a>
-                      <a href={`https://wa.me/${biz.whatsapp}`} target="_blank" rel="noopener noreferrer" className="w-full py-5 bg-green-500 text-white rounded-2xl font-black flex items-center justify-center gap-3 transition-all hover:shadow-2xl active:scale-95 uppercase text-[10px] tracking-widest"><Icon name="MessageCircle" className="w-4 h-4" /> Enviar WhatsApp</a>
+                      <a href={`tel:${biz.phone}`} className="w-full py-5 bg-[#0a2540] text-yellow-400 rounded-2xl font-black flex items-center justify-center gap-3 transition-all hover:shadow-2xl active:scale-95 uppercase text-[10px] tracking-widest border border-white/10"><Icon name="Phone" className="w-4 h-4" />Llamar</a>
+                      <a href={`https://wa.me/${biz.whatsapp}`} target="_blank" rel="noopener noreferrer" className="w-full py-5 bg-green-500 text-white rounded-2xl font-black flex items-center justify-center gap-3 transition-all hover:shadow-2xl active:scale-95 uppercase text-[10px] tracking-widest"><Icon name="MessageCircle" className="w-4 h-4" />WhatsApp</a>
                     </div>
                   </div>
 
                   {(biz.facebook || biz.instagram || biz.tiktok) && (
                     <div className="space-y-6">
-                       <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600">Ecosistema Digital</h3>
+                       <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600">Redes</h3>
                        <div className="flex flex-wrap items-center gap-4">
-                          {biz.facebook && (<a href={biz.facebook} target="_blank" rel="noopener noreferrer" className="p-5 bg-slate-50 hover:bg-blue-50 text-[#0a2540] hover:text-blue-600 rounded-[1.5rem] transition-all border border-slate-100 shadow-sm active:scale-90"><Icon name="Facebook" className="w-6 h-6" /></a>)}
-                          {biz.instagram && (<a href={biz.instagram} target="_blank" rel="noopener noreferrer" className="p-5 bg-slate-50 hover:bg-pink-50 text-[#0a2540] hover:text-pink-600 rounded-[1.5rem] transition-all border border-slate-100 shadow-sm active:scale-90"><Icon name="Instagram" className="w-6 h-6" /></a>)}
-                          {biz.tiktok && (<a href={biz.tiktok} target="_blank" rel="noopener noreferrer" className="p-5 bg-slate-50 hover:bg-slate-100 text-[#0a2540] rounded-[1.5rem] transition-all border border-slate-100 shadow-sm active:scale-90"><Icon name="Music" className="w-6 h-6" /></a>)}
+                          {biz.facebook && (<a href={biz.facebook} target="_blank" className="p-5 bg-slate-50 hover:bg-blue-50 text-[#0a2540] rounded-[1.5rem] transition-all border border-slate-100 shadow-sm"><Icon name="Facebook" className="w-6 h-6" /></a>)}
+                          {biz.instagram && (<a href={biz.instagram} target="_blank" className="p-5 bg-slate-50 hover:bg-pink-50 text-[#0a2540] rounded-[1.5rem] transition-all border border-slate-100 shadow-sm"><Icon name="Instagram" className="w-6 h-6" /></a>)}
+                          {biz.tiktok && (<a href={biz.tiktok} target="_blank" className="p-5 bg-slate-50 hover:bg-slate-100 text-[#0a2540] rounded-[1.5rem] transition-all border border-slate-100 shadow-sm"><Icon name="Music" className="w-6 h-6" /></a>)}
                        </div>
                     </div>
                   )}
@@ -577,78 +839,154 @@ const BusinessDetailView = () => {
         </div>
       </div>
 
-      {/* Modal de Edición del Propietario */}
-      {isEditing && editData && (
-        <div className="fixed inset-0 bg-[#0a2540]/60 backdrop-blur-md z-[3000] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-[3.5rem] p-10 space-y-8 shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-black text-[#0a2540] uppercase tracking-tighter">Editar Perfil Comercial</h2>
-              <button onClick={() => setIsEditing(false)} className="p-3 text-slate-300 hover:text-red-500 transition-colors"><Icon name="X" className="w-6 h-6" /></button>
+      {/* LIGHTBOX */}
+      {lightboxIndex !== null && biz.gallery && (
+        <div 
+          className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[5000] flex flex-col items-center justify-center p-4"
+          onClick={closeLightbox}
+        >
+          {/* Close button */}
+          <button 
+            onClick={closeLightbox} 
+            className="absolute top-4 right-4 p-2.5 bg-white/10 hover:bg-white/20 rounded-2xl text-white transition-all z-10"
+          >
+            <Icon name="X" className="w-5 h-5" />
+          </button>
+
+          {/* Counter badge */}
+          <div className="absolute top-4 left-4 px-3.5 py-1.5 bg-white/10 backdrop-blur rounded-xl z-10">
+            <span className="text-white text-[11px] font-black">{lightboxIndex + 1} / {biz.gallery.length}</span>
+          </div>
+
+          {/* Left arrow */}
+          <button 
+            onClick={(e) => { e.stopPropagation(); navigateLightbox(-1); }} 
+            className="absolute left-2 md:left-6 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/25 rounded-2xl text-white transition-all z-10"
+          >
+            <Icon name="ArrowLeft" className="w-5 h-5" />
+          </button>
+
+          {/* Right arrow */}
+          <button 
+            onClick={(e) => { e.stopPropagation(); navigateLightbox(1); }} 
+            className="absolute right-2 md:right-6 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/25 rounded-2xl text-white transition-all z-10"
+          >
+            <Icon name="ChevronRight" className="w-5 h-5" />
+          </button>
+
+          {/* Image + Caption container */}
+          <div 
+            className="flex flex-col items-center gap-5 max-w-3xl w-full max-h-[85vh] flex-1 justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Image */}
+            <div className="flex-1 w-full flex items-center justify-center min-h-0">
+              <img 
+                src={biz.gallery[lightboxIndex]} 
+                alt={`Foto ${lightboxIndex + 1}`} 
+                className="max-h-[65vh] max-w-full object-contain rounded-2xl shadow-2xl border border-white/10"
+              />
             </div>
 
+            {/* Caption area */}
+            <div className="w-full max-w-xl text-center">
+              {lightboxLoading ? (
+                <div className="flex items-center justify-center gap-2 py-3">
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <span className="text-white/50 text-[11px] font-bold uppercase tracking-widest">Generando descripción...</span>
+                </div>
+              ) : lightboxCaption ? (
+                <div className="bg-white/10 backdrop-blur-md rounded-2xl px-5 py-4 border border-white/10">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icon name="Sparkles" className="w-3.5 h-3.5 text-yellow-400" />
+                    <span className="text-yellow-400 text-[9px] font-black uppercase tracking-[0.2em]">Descripción</span>
+                  </div>
+                  <p className="text-white text-sm font-medium leading-relaxed">{lightboxCaption}</p>
+                </div>
+              ) : (
+                <p className="text-white/40 text-[11px] font-bold">Foto {lightboxIndex + 1} de la galería</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isEditing && editData && (
+        <div className="fixed inset-0 bg-[#0a2540]/60 backdrop-blur-md z-[3000] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-[3.5rem] p-10 space-y-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-black text-[#0a2540] uppercase tracking-tighter">Editar</h2>
+              <button onClick={() => setIsEditing(false)} className="p-3 text-slate-300 hover:text-red-500"><Icon name="X" className="w-6 h-6" /></button>
+            </div>
             <div className="space-y-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Foto Principal</label>
+                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Foto</label>
                 <div className="flex items-center gap-5 p-5 bg-slate-50 rounded-3xl border border-slate-100">
-                  <img src={editData.image} className="w-20 h-20 rounded-2xl object-cover shadow-md border border-white" />
+                  <img src={editData.image} className="w-20 h-20 rounded-2xl object-cover shadow-md" alt="" />
                   <div className="flex-1 space-y-3">
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      id="edit-img-owner" 
-                      className="hidden" 
-                      onChange={async (e) => {
-                        if (e.target.files?.[0]) {
-                          const reader = new FileReader();
-                          reader.onload = async () => {
-                            const compressed = await compressImage(reader.result as string);
-                            setEditData(prev => ({ ...prev, image: compressed }));
-                          };
-                          reader.readAsDataURL(e.target.files[0]);
-                        }
-                      }}
-                    />
-                    <label htmlFor="edit-img-owner" className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer hover:bg-slate-50 shadow-sm inline-block">Cambiar Imagen</label>
-                    <p className="text-[8px] font-bold text-slate-400 uppercase">JPEG comprimido (máx 800px)</p>
+                    <input type="file" accept="image/*" id="edit-img" className="hidden" onChange={async (e) => {
+                      if (e.target.files?.[0]) {
+                        const reader = new FileReader();
+                        reader.onload = async () => {
+                          const compressed = await compressImage(reader.result as string);
+                          setEditData(prev => ({ ...prev, image: compressed }));
+                        };
+                        reader.readAsDataURL(e.target.files[0]);
+                      }
+                    }} />
+                    <label htmlFor="edit-img" className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-[9px] font-black uppercase cursor-pointer hover:bg-slate-50 shadow-sm inline-block">Cambiar</label>
                   </div>
                 </div>
               </div>
-
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Nombre Comercial</label>
-                <input type="text" className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold outline-none" value={editData.name || ''} onChange={e => setEditData({...editData, name: e.target.value})} />
+                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Nombre</label>
+                <input type="text" className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold" value={editData.name || ''} onChange={e => setEditData({...editData, name: e.target.value})} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Descripción</label>
+                <textarea className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold h-32 resize-none" value={editData.description || ''} onChange={e => setEditData({...editData, description: e.target.value})} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Dirección</label>
+                <input type="text" className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold" value={editData.address || ''} onChange={e => setEditData({...editData, address: e.target.value})} />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Resumen / Descripción</label>
-                <textarea className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold h-32 resize-none outline-none" value={editData.description || ''} onChange={e => setEditData({...editData, description: e.target.value})} />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Dirección Física</label>
-                <input type="text" className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold outline-none" value={editData.address || ''} onChange={e => setEditData({...editData, address: e.target.value})} />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Horario</label>
-                  <input type="text" className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold text-xs" value={editData.hours || ''} onChange={e => setEditData({...editData, hours: e.target.value})} />
+              {/* GALERÍA - Editable por propietario */}
+              <div className="space-y-3 pt-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-2">
+                    Galería ({editData.gallery?.length || 0}/{getOwnerMaxGallery()})
+                  </label>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase bg-slate-100 px-3 py-1 rounded-lg">
+                    Plan {biz?.tier?.toUpperCase()}
+                  </span>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Teléfono</label>
-                  <input type="text" className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold text-xs" value={editData.phone || ''} onChange={e => setEditData({...editData, phone: e.target.value})} />
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {(editData.gallery || []).map((img, i) => (
+                    <div key={i} className="relative aspect-square rounded-2xl overflow-hidden shadow-sm group border border-slate-100">
+                      <img src={img} className="w-full h-full object-cover" alt={`Foto ${i + 1}`} />
+                      <button 
+                        type="button" 
+                        onClick={() => removeGalleryImage(i)} 
+                        className="absolute top-1.5 right-1.5 p-1 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Icon name="X" className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {(editData.gallery?.length || 0) < getOwnerMaxGallery() && (
+                    <label className="relative aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer bg-slate-50 hover:bg-blue-50 hover:border-blue-300 transition-all group">
+                      <Icon name="PlusCircle" className="text-slate-300 group-hover:text-blue-500 w-6 h-6" />
+                      <span className="text-[8px] font-black uppercase text-slate-400 mt-1 group-hover:text-blue-500">Agregar</span>
+                      <input type="file" className="hidden" accept="image/*" onChange={handleGalleryUpload} />
+                    </label>
+                  )}
                 </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">WhatsApp de Atención</label>
-                <input type="text" className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold outline-none" value={editData.whatsapp || ''} onChange={e => setEditData({...editData, whatsapp: e.target.value})} />
               </div>
             </div>
-
             <div className="flex gap-4 pt-4">
-              <button onClick={() => setIsEditing(false)} className="flex-1 py-5 bg-slate-50 text-slate-400 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-100">Descartar</button>
-              <button onClick={handleSaveEdit} className="flex-1 py-5 bg-[#0a2540] text-yellow-400 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-2xl active:scale-95">Guardar Cambios</button>
+              <button onClick={() => setIsEditing(false)} className="flex-1 py-5 bg-slate-50 text-slate-400 rounded-2xl font-black uppercase text-[10px] tracking-widest">Descartar</button>
+              <button onClick={handleSaveEdit} className="flex-1 py-5 bg-[#0a2540] text-yellow-400 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-2xl">Guardar</button>
             </div>
           </div>
         </div>
@@ -657,43 +995,44 @@ const BusinessDetailView = () => {
   );
 };
 
-// --- MAPA MEJORADO (UI/UX) ---
-
+// --- MapView (Completo) ---
 const MapView = () => {
-  const [businesses] = useState<Business[]>(getInitialData().filter(b => b.status === BusinessStatus.VERIFIED));
+  const [businesses, setBusinesses] = useState<Business[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
 
-  // Filtrado optimizado por nombre, categoría o dirección
+  useEffect(() => {
+    const q = query(collection(db, 'negocios'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(mapFirestoreToBusiness).filter(b => b.status === BusinessStatus.VERIFIED);
+      setBusinesses(data);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const filtered = businesses.filter(b => {
     const q = searchQuery.toLowerCase();
     const catName = CATEGORIES.find(c => c.id === b.category)?.name || '';
-    return b.name.toLowerCase().includes(q) || 
-           catName.toLowerCase().includes(q) || 
-           b.address.toLowerCase().includes(q);
+    return b.name.toLowerCase().includes(q) || catName.toLowerCase().includes(q) || b.address.toLowerCase().includes(q);
   });
 
   const LocateControl = () => {
     const map = useMap();
     const findMe = () => {
       if (!navigator.geolocation) {
-        alert("Geolocalización no soportada en este dispositivo.");
+        alert("Geolocalización no soportada");
         return;
       }
       map.locate().on('locationfound', (e) => {
         setUserLocation([e.latlng.lat, e.latlng.lng]);
         map.flyTo(e.latlng, 15);
       }).on('locationerror', () => {
-        alert("No se pudo obtener tu ubicación. Asegúrate de dar permisos de GPS.");
+        alert("No se pudo obtener tu ubicación");
       });
     };
 
     return (
-      <button 
-        onClick={findMe}
-        className="absolute bottom-10 right-6 z-[1000] p-4 bg-white text-[#0a2540] rounded-2xl shadow-2xl border border-slate-100 transition-all hover:scale-110 active:scale-90 flex items-center justify-center"
-        title="Mi ubicación"
-      >
+      <button onClick={findMe} className="absolute bottom-10 right-6 z-[1000] p-4 bg-white text-[#0a2540] rounded-2xl shadow-2xl border border-slate-100 transition-all hover:scale-110 active:scale-90 flex items-center justify-center" title="Mi ubicación">
         <Icon name="Navigation" className="w-6 h-6" />
       </button>
     );
@@ -701,16 +1040,7 @@ const MapView = () => {
 
   const createCustomIcon = () => {
     return L.divIcon({
-      html: `
-        <div class="relative">
-          <div class="w-10 h-10 bg-white rounded-2xl shadow-xl border-2 border-blue-600 flex items-center justify-center transition-transform hover:scale-110">
-            <div class="text-blue-600">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>
-            </div>
-          </div>
-          <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-blue-600 rotate-45"></div>
-        </div>
-      `,
+      html: `<div class="relative"><div class="w-10 h-10 bg-white rounded-2xl shadow-xl border-2 border-blue-600 flex items-center justify-center"><div class="text-blue-600"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg></div></div><div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-blue-600 rotate-45"></div></div>`,
       className: '',
       iconSize: [40, 40],
       iconAnchor: [20, 40],
@@ -720,41 +1050,22 @@ const MapView = () => {
 
   return (
     <div className="relative h-[calc(100vh-140px)] w-full overflow-hidden bg-slate-50 md:rounded-[2.5rem] shadow-inner border border-slate-100">
-      {/* Barra de Búsqueda Flotante (Reemplaza Categorías) */}
       <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1000] w-[90%] max-w-lg">
         <div className="relative group">
           <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">
             <Icon name="Search" className="w-5 h-5" />
           </div>
-          <input 
-            type="text" 
-            placeholder="Buscar en el mapa (Nombre, tipo, dirección...)" 
-            className="w-full bg-white/95 backdrop-blur-xl border border-slate-200 rounded-3xl py-4 pl-14 pr-6 font-bold shadow-2xl focus:ring-4 focus:ring-blue-600/10 transition-all outline-none"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+          <input type="text" placeholder="Buscar en el mapa..." className="w-full bg-white/95 backdrop-blur-xl border border-slate-200 rounded-3xl py-4 pl-14 pr-6 font-bold shadow-2xl focus:ring-4 focus:ring-blue-600/10 transition-all outline-none" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
         </div>
       </div>
 
-      <MapContainer 
-        center={[15.6333, -87.1167]} 
-        zoom={14} 
-        style={{ height: '100%', width: '100%' }}
-        zoomControl={false}
-      >
-        <TileLayer 
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        />
+      <MapContainer center={[15.6333, -87.1167]} zoom={14} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' />
         
         {filtered.map(biz => (
-          <Marker 
-            key={biz.id} 
-            position={[biz.lat, biz.lng]} 
-            icon={createCustomIcon()}
-          >
+          <Marker key={biz.id} position={[biz.lat, biz.lng]} icon={createCustomIcon()}>
             <Popup className="custom-leaflet-popup">
-              <div className="w-[260px] bg-white rounded-3xl overflow-hidden shadow-2xl border border-slate-100 animate-in fade-in duration-300">
+              <div className="w-[260px] bg-white rounded-3xl overflow-hidden shadow-2xl border border-slate-100">
                 <div className="relative h-28">
                    <img src={biz.image} alt="" className="w-full h-full object-cover" />
                    <div className="absolute top-3 left-3 bg-white/90 backdrop-blur px-2 py-1 rounded-xl flex items-center gap-1 shadow-sm">
@@ -763,28 +1074,12 @@ const MapView = () => {
                    </div>
                 </div>
                 <div className="p-4 space-y-3">
-                  <div className="space-y-0.5">
-                    <h4 className="font-black text-[#0a2540] uppercase text-xs leading-tight line-clamp-1">{biz.name}</h4>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{CATEGORIES.find(c => c.id === biz.category)?.name}</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-slate-500">
-                    <Icon name="MapPin" className="w-3 h-3 text-blue-500" />
-                    <span className="text-[9px] font-medium line-clamp-1">{biz.address}</span>
-                  </div>
+                  <h4 className="font-black text-[#0a2540] uppercase text-xs leading-tight line-clamp-1">{biz.name}</h4>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{CATEGORIES.find(c => c.id === biz.category)?.name}</p>
                   <div className="grid grid-cols-2 gap-2 pt-1">
-                    <Link 
-                      to={`/business/${biz.id}`} 
-                      className="py-2.5 bg-[#0a2540] text-yellow-400 rounded-xl text-[9px] font-black uppercase text-center tracking-widest"
-                    >
-                      Ver Perfil
-                    </Link>
-                    <a 
-                      href={`https://wa.me/${biz.whatsapp}`} 
-                      target="_blank" 
-                      className="py-2.5 bg-green-500 text-white rounded-xl text-[9px] font-black uppercase text-center tracking-widest flex items-center justify-center gap-1.5"
-                    >
-                      <Icon name="MessageCircle" className="w-3 h-3" />
-                      WhatsApp
+                    <Link to={`/business/${biz.id}`} className="py-2.5 bg-[#0a2540] text-yellow-400 rounded-xl text-[9px] font-black uppercase text-center tracking-widest">Ver Perfil</Link>
+                    <a href={`https://wa.me/${biz.whatsapp}`} target="_blank" className="py-2.5 bg-green-500 text-white rounded-xl text-[9px] font-black uppercase text-center tracking-widest flex items-center justify-center gap-1.5">
+                      <Icon name="MessageCircle" className="w-3 h-3" />WhatsApp
                     </a>
                   </div>
                 </div>
@@ -800,40 +1095,29 @@ const MapView = () => {
             iconSize: [24, 24],
             iconAnchor: [12, 12],
           })}>
-            <Popup>Tu ubicación actual</Popup>
+            <Popup>Tu ubicación</Popup>
           </Marker>
         )}
 
         <LocateControl />
       </MapContainer>
 
-      {/* Estilos específicos para los popups de Leaflet */}
       <style>{`
-        .leaflet-popup-content-wrapper {
-          padding: 0 !important;
-          background: transparent !important;
-          box-shadow: none !important;
-        }
-        .leaflet-popup-content {
-          margin: 0 !important;
-          width: auto !important;
-        }
-        .leaflet-popup-tip-container {
-          display: none !important;
-        }
-        .leaflet-container {
-          background: #f8fafc !important;
-        }
+        .leaflet-popup-content-wrapper { padding: 0 !important; background: transparent !important; box-shadow: none !important; }
+        .leaflet-popup-content { margin: 0 !important; width: auto !important; }
+        .leaflet-popup-tip-container { display: none !important; }
+        .leaflet-container { background: #f8fafc !important; }
       `}</style>
     </div>
   );
 };
 
+// --- MembershipView (Completo) ---
 const MembershipView = () => {
   const plans = [
-    { name: 'PLAN LITE', tierSlug: 'lite', icon: 'Rocket', price: 'L 375', period: '/ mes', description: 'El primer paso para digitalizar tu negocio', recommended: false, features: ['Perfil Verificado', 'Presencia en Buscador', 'Escaparate Básico (1 foto)', 'Panel de Control'], buttonText: 'ELEGIR', variant: 'default' },
-    { name: 'PLAN PLUS', tierSlug: 'plus', icon: 'Trophy', price: 'L 600', period: '/ mes', description: 'Ideal para convertir visitas en clientes', recommended: true, features: ['Todo de Lite', 'Botón WhatsApp', 'Mayor Alcance (Feed)', '4 Fotos', 'Prioridad en Búsqueda'], buttonText: 'ELEGIR', variant: 'highlight' },
-    { name: 'PLAN PRO', tierSlug: 'pro', icon: 'ShieldCheck', price: 'L 850', period: '/ mes', description: 'Para quienes quieren dominar su categoría', recommended: false, features: ['Todo de Plus', 'Redes Sociales', 'Posicionamiento VIP (Top)', 'Catálogo Extendido', 'Asistente IA'], buttonText: 'ELEGIR', variant: 'default' }
+    { name: 'PLAN LITE', tierSlug: 'lite', icon: 'Rocket', price: 'L 375', period: '/ mes', description: 'El primer paso para digitalizar tu negocio', recommended: false, features: ['Perfil Verificado', 'Presencia en Buscador', '4 Fotos (1 Portada + 3 Galería)', 'Panel de Control'], buttonText: 'ELEGIR', variant: 'default' },
+    { name: 'PLAN PLUS', tierSlug: 'plus', icon: 'Trophy', price: 'L 600', period: '/ mes', description: 'Ideal para convertir visitas en clientes', recommended: true, features: ['Todo de Lite', 'Botón WhatsApp', 'Mayor Alcance (Feed)', '8 Fotos (1 Portada + 7 Galería)', 'Prioridad en Búsqueda'], buttonText: 'ELEGIR', variant: 'highlight' },
+    { name: 'PLAN PRO', tierSlug: 'pro', icon: 'ShieldCheck', price: 'L 850', period: '/ mes', description: 'Para quienes quieren dominar su categoría', recommended: false, features: ['Todo de Plus', 'Redes Sociales', 'Posicionamiento VIP (Top)', '15 Fotos (1 Portada + 14 Galería)', 'Asistente IA'], buttonText: 'ELEGIR', variant: 'default' }
   ];
 
   return (
@@ -865,8 +1149,7 @@ const MembershipView = () => {
   );
 };
 
-// --- REGISTRO DE NEGOCIO ---
-
+// --- Register View Corregido con Storage ---
 const RegisterView = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -920,14 +1203,52 @@ const RegisterView = () => {
     }
   };
 
-  const totalSlots = getMaxGallerySlots() + 1;
+  // --- Horario de atención ---
+  const DAYS_ES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+  const [schedule, setSchedule] = useState(
+    DAYS_ES.map((day, i) => ({
+      day,
+      open: i < 5, // Lunes a viernes abierto por defecto
+      from: '08:00',
+      to: '17:00'
+    }))
+  );
+
+  const toggleDayOpen = (index: number) => {
+    setSchedule(prev => prev.map((d, i) => i === index ? { ...d, open: !d.open } : d));
+  };
+  const updateDayTime = (index: number, field: 'from' | 'to', value: string) => {
+    setSchedule(prev => prev.map((d, i) => i === index ? { ...d, [field]: value } : d));
+  };
+  const formatScheduleForStorage = (): string => {
+    const openDays = schedule.filter(d => d.open);
+    if (openDays.length === 0) return 'Cerrado';
+    // Agrupar días consecutivos con mismo horario
+    const groups: { days: string[], from: string, to: string }[] = [];
+    openDays.forEach(d => {
+      const last = groups[groups.length - 1];
+      if (last && last.from === d.from && last.to === d.to) {
+        last.days.push(d.day);
+      } else {
+        groups.push({ days: [d.day], from: d.from, to: d.to });
+      }
+    });
+    return groups.map(g => {
+      const dayStr = g.days.length === 1 ? g.days[0] : `${g.days[0]} - ${g.days[g.days.length - 1]}`;
+      // Formatear hora a 12h
+      const fmt = (t: string) => {
+        const [h, m] = t.split(':').map(Number);
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const h12 = h % 12 || 12;
+        return `${h12}:${m.toString().padStart(2,'0')} ${ampm}`;
+      };
+      return `${dayStr}: ${fmt(g.from)} - ${fmt(g.to)}`;
+    }).join(' | ');
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors.includes(name)) {
-      setErrors(prev => prev.filter(err => err !== name));
-    }
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, isGallery = false) => {
@@ -935,19 +1256,16 @@ const RegisterView = () => {
     if (files && files[0]) {
       const reader = new FileReader();
       reader.onloadend = async () => {
-        const result = reader.result as string;
-        const compressed = await compressImage(result);
-        
+        const compressed = await compressImage(reader.result as string);
         if (isGallery) {
           if (formData.gallery.length < getMaxGallerySlots()) {
             setFormData(prev => ({...prev, gallery: [...prev.gallery, compressed]}));
-          } else {alert(`Límite de fotos para el plan ${tier.toUpperCase()} alcanzado.`);
+          } else {
+            alert(`Límite de fotos para el plan ${tier.toUpperCase()} alcanzado.`);
           }
-        } else {setFormData(prev => ({...prev, image: compressed}));
-          if (errors.includes('image')) {setErrors(prev => prev.filter(err => err !== 'image'));
-          }
+        } else {
+          setFormData(prev => ({...prev, image: compressed}));
         }
-
       };
       reader.readAsDataURL(files[0]);
     }
@@ -964,75 +1282,60 @@ const RegisterView = () => {
 
   const handleSubmitAttempt = (e: React.FormEvent) => {
     e.preventDefault();
-    // Solo activamos el modal de confirmación para que el usuario esté seguro
     setShowConfirmModal(true);
   };
 
   const handleFinalSubmit = async () => {
-  setIsSaving(true);
-  try {
-    const negociosRef = collection(db, 'negocios');
-    await addDoc(negociosRef, {
-      name: formData.businessName,
-      owner: formData.ownerName,
-      email: formData.email,
-      phone: formData.phone,
-      whatsapp: formData.whatsapp,
-      category: formData.category,
-      subCategory: formData.subCategory,
-      address: formData.address,
-      description: formData.description,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-      rating: 5.0,  // ← COMA AGREGADA
-      image: formData.image || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=800',
-      ImagenPrincipal: formData.image || '',
-      GaleriaFotos: formData.gallery || [],
-      ownerPassword: formData.ownerPassword,
-      VIP: false
-    });
+    setIsSaving(true);
+    try {
+      // Subir imagen principal a Storage
+      let mainImageUrl = formData.image;
+      if (formData.image) {
+        mainImageUrl = await uploadImageToCloudinary(formData.image, `businesses/${Date.now()}_main`);
+      }
 
-      // También guardar en LocalStorage para consistencia temporal
-      const newBiz: Business = {
-        id: Math.random().toString(36).substr(2, 9),
+      // Subir galería
+      const galleryUrls = [];
+      for (let i = 0; i < formData.gallery.length; i++) {
+        const url = await uploadImageToCloudinary(formData.gallery[i], `businesses/${Date.now()}_gallery_${i}`);
+        galleryUrls.push(url);
+      }
+
+      const negociosRef = collection(db, 'negocios');
+      await addDoc(negociosRef, {
         name: formData.businessName,
-        ownerPassword: formData.ownerPassword,
-        description: formData.description,
+        owner: formData.ownerName,
+        email: formData.email,
+        phone: formData.phone,
+        whatsapp: formData.whatsapp,
         category: formData.category,
         subCategory: formData.subCategory,
         address: formData.address,
-        phone: formData.phone,
-        whatsapp: formData.whatsapp,
-        image: formData.image || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=800',
-        status: BusinessStatus.PENDING,
-        featured: false,
+        description: formData.description,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
         rating: 5.0,
-        hours: '08:00 AM - 05:00 PM',
-        lat: 15.6333,
-        lng: -87.1167,
-        tier: tier,
-        facebook: formData.facebook,
-        instagram: formData.instagram,
-        tiktok: formData.tiktok,
-        otherLink: formData.otherLink,
-        gallery: formData.gallery
-      };
-
-      const current = getInitialData();
-      saveToDB([newBiz, ...current]);
+        image: mainImageUrl || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=800',
+        ownerPassword: formData.ownerPassword,
+        VIP: false,
+        gallery: galleryUrls,
+        hours: formatScheduleForStorage(),
+        tier: tier
+      });
 
       setShowConfirmModal(false);
-      alert("¡Registro exitoso! Tu negocio ha sido guardado y está en proceso de verificación.");
+      alert("¡Registro exitoso! Tu negocio está en proceso de verificación.");
       navigate('/explorer');
     } catch (error) {
-      console.error("Error en Firebase:", error);
-      alert("Error al guardar el negocio. Intenta nuevamente.");
+      console.error("Error:", error);
+      alert("Error al guardar. Intenta con imágenes más pequeñas.");
     } finally {
       setIsSaving(false);
     }
   };
 
   const currentCategory = CATEGORIES.find(c => c.id === formData.category);
+  const totalSlots = getMaxGallerySlots() + 1;
 
   return (
     <div className="bg-slate-50 min-h-screen py-12 px-4 md:px-8 space-y-12 animate-in fade-in duration-500 relative">
@@ -1043,39 +1346,100 @@ const RegisterView = () => {
 
       <form onSubmit={handleSubmitAttempt} className="max-w-3xl mx-auto space-y-10 pb-20">
         <section className="bg-white rounded-[2.5rem] shadow-xl p-8 md:p-10 border border-slate-100 space-y-8">
-          <div className="flex items-center gap-3">
-             <div className="w-1.5 h-6 bg-yellow-400 rounded-full" />
-             <h3 className="text-sm font-black text-[#001f3f] uppercase tracking-widest">Seleccione su Plan</h3>
-          </div>
+          <div className="flex items-center gap-3"><div className="w-1.5 h-6 bg-yellow-400 rounded-full" /><h3 className="text-sm font-black text-[#001f3f] uppercase tracking-widest">Seleccione su Plan</h3></div>
           <div className="flex bg-slate-50 p-2 rounded-2xl gap-2">
             {[MembershipTier.LITE, MembershipTier.PLUS, MembershipTier.PRO].map(t => (
               <button key={t} type="button" onClick={() => setTier(t)} className={`flex-1 py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${tier === t ? 'bg-[#001f3f] text-yellow-400 shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>{t}</button>
             ))}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Propietario *</label><input type="text" name="ownerName" placeholder="Nombre completo" className={`w-full bg-slate-50 border ${errors.includes('ownerName') ? 'border-red-500' : 'border-slate-200'} rounded-2xl py-4 px-6 outline-none font-bold`} value={formData.ownerName} onChange={handleInputChange} /></div>
-            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">DNI *</label><input type="text" name="dni" placeholder="0000-0000-00000" className={`w-full bg-slate-50 border ${errors.includes('dni') ? 'border-red-500' : 'border-slate-200'} rounded-2xl py-4 px-6 outline-none font-bold`} value={formData.dni} onChange={handleInputChange} /></div>
-            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Email *</label><input type="email" name="email" placeholder="ejemplo@correo.com" className={`w-full bg-slate-50 border ${errors.includes('email') ? 'border-red-500' : 'border-slate-200'} rounded-2xl py-4 px-6 outline-none font-bold`} value={formData.email} onChange={handleInputChange} /></div>
-            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Teléfono *</label><input type="tel" name="phone" placeholder="9999-9999" className={`w-full bg-slate-50 border ${errors.includes('phone') ? 'border-red-500' : 'border-slate-200'} rounded-2xl py-4 px-6 outline-none font-bold`} value={formData.phone} onChange={handleInputChange} /></div>
+            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Propietario *</label><input type="text" name="ownerName" placeholder="Nombre completo" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold" value={formData.ownerName} onChange={handleInputChange} /></div>
+            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">DNI *</label><input type="text" name="dni" placeholder="0000-0000-00000" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold" value={formData.dni} onChange={handleInputChange} /></div>
+            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Email *</label><input type="email" name="email" placeholder="ejemplo@correo.com" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold" value={formData.email} onChange={handleInputChange} /></div>
+            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Teléfono *</label><input type="tel" name="phone" placeholder="9999-9999" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold" value={formData.phone} onChange={handleInputChange} /></div>
           </div>
         </section>
 
         <section className="bg-white rounded-[2.5rem] shadow-xl p-8 md:p-10 border border-slate-100 space-y-8">
           <div className="flex items-center gap-3"><div className="w-1.5 h-6 bg-yellow-400 rounded-full" /><h3 className="text-sm font-black text-[#001f3f] uppercase tracking-widest">DETALLES COMERCIALES</h3></div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="md:col-span-2 space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Nombre del Negocio *</label><input type="text" name="businessName" placeholder="Nombre Comercial" className={`w-full bg-slate-50 border ${errors.includes('businessName') ? 'border-red-500' : 'border-slate-200'} rounded-2xl py-4 px-6 outline-none font-bold md:col-span-2`} value={formData.businessName} onChange={handleInputChange} /></div>
-            <div className="md:col-span-2 space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Contraseña del Propietario *</label><input type="password" name="ownerPassword" placeholder="Crea una contraseña para gestionar tu negocio" className={`w-full bg-slate-50 border ${errors.includes('ownerPassword') ? 'border-red-500' : 'border-slate-200'} rounded-2xl py-4 px-6 outline-none font-bold md:col-span-2`} value={formData.ownerPassword} onChange={handleInputChange} /></div>
-            
+            <div className="md:col-span-2 space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Nombre del Negocio *</label><input type="text" name="businessName" placeholder="Nombre Comercial" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold" value={formData.businessName} onChange={handleInputChange} /></div>
+            <div className="md:col-span-2 space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Contraseña del Propietario *</label><input type="password" name="ownerPassword" placeholder="Crea una contraseña para gestionar tu negocio" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold" value={formData.ownerPassword} onChange={handleInputChange} /></div>
             <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Categoría *</label><select name="category" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold appearance-none" value={formData.category} onChange={handleInputChange}>{CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Subcategoría *</label><select name="subCategory" className={`w-full bg-slate-50 border ${errors.includes('subCategory') ? 'border-red-500' : 'border-slate-200'} rounded-2xl py-4 px-6 outline-none font-bold appearance-none`} value={formData.subCategory} onChange={handleInputChange}><option value="">Seleccionar Subcategoría</option>{currentCategory?.subCategories.map(sc => <option key={sc.id} value={sc.id}>{sc.name}</option>)}</select></div>
+            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Subcategoría *</label><select name="subCategory" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold appearance-none" value={formData.subCategory} onChange={handleInputChange}><option value="">Seleccionar Subcategoría</option>{currentCategory?.subCategories.map(sc => <option key={sc.id} value={sc.id}>{sc.name}</option>)}</select></div>
           </div>
           <div className="space-y-3">
-             <div className="flex justify-between items-center"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">RESUMEN *</label><button type="button" onClick={handleAutoRedact} disabled={isGenerating} className="px-4 py-2 bg-yellow-400 text-[#001f3f] rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:scale-105 active:scale-95 disabled:opacity-50"><Icon name="Sparkles" className="w-3 h-3" /> {isGenerating ? 'GENERANDO...' : 'AUTO-REDACTAR'}</button></div>
-             <textarea name="description" placeholder="Descripción breve..." className={`w-full bg-slate-50 border ${errors.includes('description') ? 'border-red-500' : 'border-slate-200'} rounded-2xl py-4 px-6 outline-none font-bold h-32 resize-none`} value={formData.description} onChange={handleInputChange} />
+             <div className="flex justify-between items-center"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">RESUMEN *</label><button type="button" onClick={handleAutoRedact} disabled={isGenerating} className="px-4 py-2 bg-yellow-400 text-[#001f3f] rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:scale-105 active:scale-95 disabled:opacity-50"><Icon name="Sparkles" className="w-3 h-3" />{isGenerating ? 'GENERANDO...' : 'AUTO-REDACTAR'}</button></div>
+             <textarea name="description" placeholder="Descripción breve..." className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold h-32 resize-none" value={formData.description} onChange={handleInputChange} />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Dirección *</label><input type="text" name="address" placeholder="Ubicación física" className={`w-full bg-slate-50 border ${errors.includes('address') ? 'border-red-500' : 'border-slate-200'} rounded-2xl py-4 px-6 outline-none font-bold`} value={formData.address} onChange={handleInputChange} /></div>
-            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">WhatsApp *</label><input type="text" name="whatsapp" placeholder="WhatsApp" className={`w-full bg-slate-50 border ${errors.includes('whatsapp') ? 'border-red-500' : 'border-slate-200'} rounded-2xl py-4 px-6 outline-none font-bold`} value={formData.whatsapp} onChange={handleInputChange} /></div>
+            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Dirección *</label><input type="text" name="address" placeholder="Ubicación física" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold" value={formData.address} onChange={handleInputChange} /></div>
+            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">WhatsApp *</label><input type="text" name="whatsapp" placeholder="WhatsApp" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold" value={formData.whatsapp} onChange={handleInputChange} /></div>
+          </div>
+        </section>
+
+        {/* HORARIO DE ATENCIÓN */}
+        <section className="bg-white rounded-[2.5rem] shadow-xl p-8 md:p-10 border border-slate-100 space-y-8">
+          <div className="flex items-center gap-3"><div className="w-1.5 h-6 bg-yellow-400 rounded-full" /><h3 className="text-sm font-black text-[#001f3f] uppercase tracking-widest">Horario de Atención</h3></div>
+          
+          <div className="space-y-3">
+            {schedule.map((day, i) => (
+              <div 
+                key={day.day} 
+                className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${day.open ? 'bg-slate-50 border-slate-200' : 'bg-slate-50/30 border-slate-100 opacity-60'}`}
+              >
+                <button 
+                  type="button" 
+                  onClick={() => toggleDayOpen(i)}
+                  className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${day.open ? 'bg-blue-600' : 'bg-slate-300'}`}
+                >
+                  <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${day.open ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
+                <span className={`text-[11px] font-black uppercase tracking-tight w-24 shrink-0 ${day.open ? 'text-slate-700' : 'text-slate-400'}`}>
+                  {day.day}
+                </span>
+                {day.open ? (
+                  <div className="flex items-center gap-2 flex-1 flex-wrap sm:flex-nowrap">
+                    <select 
+                      value={day.from} 
+                      onChange={e => updateDayTime(i, 'from', e.target.value)}
+                      className="bg-white border border-slate-200 rounded-xl py-2 px-3 text-xs font-bold outline-none flex-1 min-w-[90px] appearance-none cursor-pointer"
+                    >
+                      {Array.from({length: 24}, (_, h) => 
+                        ['00','30'].map(m => {
+                          const val = `${h.toString().padStart(2,'0')}:${m}`;
+                          const ampm = h >= 12 ? 'PM' : 'AM';
+                          const h12 = h % 12 || 12;
+                          return <option key={val} value={val}>{h12}:{m} {ampm}</option>;
+                        })
+                      )}
+                    </select>
+                    <span className="text-[10px] font-black text-slate-400">—</span>
+                    <select 
+                      value={day.to} 
+                      onChange={e => updateDayTime(i, 'to', e.target.value)}
+                      className="bg-white border border-slate-200 rounded-xl py-2 px-3 text-xs font-bold outline-none flex-1 min-w-[90px] appearance-none cursor-pointer"
+                    >
+                      {Array.from({length: 24}, (_, h) => 
+                        ['00','30'].map(m => {
+                          const val = `${h.toString().padStart(2,'0')}:${m}`;
+                          const ampm = h >= 12 ? 'PM' : 'AM';
+                          const h12 = h % 12 || 12;
+                          return <option key={val} value={val}>{h12}:{m} {ampm}</option>;
+                        })
+                      )}
+                    </select>
+                  </div>
+                ) : (
+                  <span className="text-[10px] font-bold text-slate-400 italic flex-1">Cerrado este día</span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+            <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest block mb-1.5">Vista previa</span>
+            <p className="text-xs font-bold text-slate-600 leading-relaxed">{formatScheduleForStorage()}</p>
           </div>
         </section>
 
@@ -1083,10 +1447,10 @@ const RegisterView = () => {
           <section className="bg-white rounded-[2.5rem] shadow-xl p-8 md:p-10 border border-slate-100 space-y-8 animate-in slide-in-from-top-4">
             <div className="flex items-center gap-3"><div className="w-1.5 h-6 bg-blue-600 rounded-full" /><h3 className="text-sm font-black text-[#001f3f] uppercase tracking-widest">ECOSISTEMA DIGITAL (PRO)</h3></div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 flex items-center gap-2"><Icon name="Facebook" className="w-3 h-3" /> FACEBOOK</label><input type="text" name="facebook" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-5 outline-none font-bold text-sm" value={formData.facebook} onChange={handleInputChange} /></div>
-              <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 flex items-center gap-2"><Icon name="Instagram" className="w-3 h-3" /> INSTAGRAM</label><input type="text" name="instagram" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-5 outline-none font-bold text-sm" value={formData.instagram} onChange={handleInputChange} /></div>
-              <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 flex items-center gap-2"><Icon name="Music" className="w-3 h-3" /> TIKTOK</label><input type="text" name="tiktok" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-5 outline-none font-bold text-sm" value={formData.tiktok} onChange={handleInputChange} /></div>
-              <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 flex items-center gap-2"><Icon name="Navigation" className="w-3 h-3" /> OTROS</label><input type="text" name="otherLink" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-5 outline-none font-bold text-sm" value={formData.otherLink} onChange={handleInputChange} /></div>
+              <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 flex items-center gap-2"><Icon name="Facebook" className="w-3 h-3" />FACEBOOK</label><input type="text" name="facebook" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-5 outline-none font-bold text-sm" value={formData.facebook} onChange={handleInputChange} /></div>
+              <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 flex items-center gap-2"><Icon name="Instagram" className="w-3 h-3" />INSTAGRAM</label><input type="text" name="instagram" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-5 outline-none font-bold text-sm" value={formData.instagram} onChange={handleInputChange} /></div>
+              <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 flex items-center gap-2"><Icon name="Music" className="w-3 h-3" />TIKTOK</label><input type="text" name="tiktok" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-5 outline-none font-bold text-sm" value={formData.tiktok} onChange={handleInputChange} /></div>
+              <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 flex items-center gap-2"><Icon name="Navigation" className="w-3 h-3" />OTROS</label><input type="text" name="otherLink" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-5 outline-none font-bold text-sm" value={formData.otherLink} onChange={handleInputChange} /></div>
             </div>
           </section>
         )}
@@ -1137,37 +1501,26 @@ const RegisterView = () => {
   );
 };
 
+// --- ADMIM VIEW (Completo con Modal de Edición Restaurado) ---
 const AdminView = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem(ADMIN_AUTH_KEY) === 'true');
   const [password, setPassword] = useState('');
   const [businesses, setBusinesses] = useState<Business[]>([]);
-
-  useEffect(() => {
-  const q = query(collection(db, 'negocios'));
-  const unsubscribe = onSnapshot(q, (snapshot) => {
-    const data = snapshot.docs.map(mapFirestoreToBusiness);
-    setBusinesses(data);
-    saveToDB(data);
-  }, (error) => {
-    console.error("Error en panel admin:", error);
-    setBusinesses(getInitialData());
-  });
-  return () => unsubscribe();
-}, []);
   const [menuAbiertoId, setMenuAbiertoId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBusiness, setEditingBusiness] = useState<Partial<Business> | null>(null);
-
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // --- Analíticas MOCK (Derivadas de datos reales para consistencia) ---
-  const activeUsers = 1245 + businesses.length * 15;
-  const totalConversions = businesses.reduce((acc, b) => acc + (b.rating > 4.5 ? 200 : 50), 0) + 342;
-  const socialInteractivity = {
-    facebook: 420,
-    instagram: 310,
-    tiktok: 580
-  };
+  useEffect(() => {
+    const q = query(collection(db, 'negocios'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(mapFirestoreToBusiness);
+      setBusinesses(data);
+    }, (error) => {
+      console.error("Error en panel admin:", error);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -1181,82 +1534,106 @@ const AdminView = () => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === 'Mora0105') { 
-      setIsAuthenticated(true); sessionStorage.setItem(ADMIN_AUTH_KEY, 'true');
-    } else { alert('Incorrecto'); }
+    if (password === ADMIN_PASSWORD) { 
+      setIsAuthenticated(true); 
+      sessionStorage.setItem(ADMIN_AUTH_KEY, 'true');
+    } else { 
+      alert('Incorrecto'); 
+    }
   };
 
-  const handleLogout = () => { setIsAuthenticated(false); sessionStorage.removeItem(ADMIN_AUTH_KEY); };
-
-  const saveAndRefresh = (data: Business[]) => { setBusinesses(data); saveToDB(data); };
+  const handleLogout = () => { 
+    setIsAuthenticated(false); 
+    sessionStorage.removeItem(ADMIN_AUTH_KEY); 
+  };
 
   const toggleStatus = async (id: string) => {
-  const businessRef = doc(db, 'negocios', id);
-  const currentBiz = businesses.find(b => b.id === id);
-  const newStatus = currentBiz?.status === BusinessStatus.VERIFIED ? BusinessStatus.PENDING : BusinessStatus.VERIFIED;
-  
-  try {
-    await updateDoc(businessRef, { status: newStatus });
-    // No necesitas actualizar el estado local manualmente porque onSnapshot escuchará el cambio automáticamente
-  } catch (error) {
-    console.error("Error actualizando estado:", error);
-    alert("Error al cambiar estado");
-  }
-  setMenuAbiertoId(null);
- };
+    const businessRef = doc(db, 'negocios', id);
+    const currentBiz = businesses.find(b => b.id === id);
+    const newStatus = currentBiz?.status === BusinessStatus.VERIFIED ? BusinessStatus.PENDING : BusinessStatus.VERIFIED;
+    try {
+      await updateDoc(businessRef, { status: newStatus });
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Error al cambiar estado");
+    }
+    setMenuAbiertoId(null);
+  };
 
   const toggleFeatured = async (id: string) => {
-  const businessRef = doc(db, 'negocios', id);
-  const currentBiz = businesses.find(b => b.id === id);
-  
-  try {
-    await updateDoc(businessRef, { VIP: !currentBiz?.featured });
-  } catch (error) {
-    console.error("Error actualizando VIP:", error);
-  }
-  setMenuAbiertoId(null);
- };
+    const businessRef = doc(db, 'negocios', id);
+    const currentBiz = businesses.find(b => b.id === id);
+    try {
+      await updateDoc(businessRef, { VIP: !currentBiz?.featured });
+    } catch (error) {
+      console.error("Error:", error);
+    }
+    setMenuAbiertoId(null);
+  };
 
-  const openEditModal = (biz: Business) => { setEditingBusiness({ ...biz }); setIsModalOpen(true); setMenuAbiertoId(null); };
+  const openEditModal = (biz: Business) => { 
+    setEditingBusiness({ ...biz }); 
+    setIsModalOpen(true); 
+    setMenuAbiertoId(null); 
+  };
 
   const handleSaveEdit = async () => {
-  if (!editingBusiness?.id) return;
-  const businessRef = doc(db, 'negocios', editingBusiness.id);
-  
-  try {
-    await updateDoc(businessRef, {
-      name: editingBusiness.name,
-      description: editingBusiness.description,
-      address: editingBusiness.address,
-      // Agrega aquí los campos que permitas editar
-    });
-    setIsModalOpen(false);
-    setEditingBusiness(null);
-    alert("Cambios guardados correctamente");
-  } catch (error) {
-    console.error("Error guardando:", error);
-    alert("Error al guardar cambios");
-  }
-};
+    if (!editingBusiness?.id) return;
+    
+    try {
+      const businessRef = doc(db, 'negocios', editingBusiness.id);
+      
+      // Portada: subir si es base64
+      let imageUrl = editingBusiness.image;
+      if (editingBusiness.image?.startsWith('data:')) {
+        imageUrl = await uploadImageToCloudinary(editingBusiness.image, 'businesses');
+      }
+
+      // Galería: subir solo las que sean base64 nuevas
+      const galleryUrls: string[] = [];
+      for (const img of (editingBusiness.gallery || [])) {
+        if (img.startsWith('data:')) {
+          const url = await uploadImageToCloudinary(img, `businesses/${editingBusiness.id}/gallery_${Date.now()}_${Math.random().toString(36).slice(2,7)}`);
+          galleryUrls.push(url);
+        } else {
+          galleryUrls.push(img);
+        }
+      }
+
+      await updateDoc(businessRef, {
+        name: editingBusiness.name,
+        description: editingBusiness.description,
+        address: editingBusiness.address,
+        subCategory: editingBusiness.subCategory,
+        image: imageUrl,
+        gallery: galleryUrls
+      });
+      
+      setIsModalOpen(false);
+      alert("Cambios guardados correctamente");
+      
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Error al guardar");
+    }
+  };
 
   const deleteBusiness = async (id: string) => { 
-  if (confirm('¿Eliminar este negocio?')) { 
-    try {
-      await deleteDoc(doc(db, 'negocios', id));
-    } catch (error) {
-      console.error("Error eliminando:", error);
-      alert("Error al eliminar");
+    if (confirm('¿Eliminar este negocio?')) { 
+      try {
+        await deleteDoc(doc(db, 'negocios', id));
+      } catch (error) {
+        console.error("Error:", error);
+        alert("Error al eliminar");
+      }
     }
-  }
-  setMenuAbiertoId(null); 
-};
-
-// Agregar import de deleteDoc
-
+    setMenuAbiertoId(null); 
+  };
 
   const exportarAExcel = () => {
     const ws = XLSX.utils.json_to_sheet(businesses.map(b => ({ ID: b.id, Nombre: b.name, Categoría: b.category, Estado: b.status, VIP: b.featured ? 'SÍ' : 'NO' })));
-    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Negocios");
+    const wb = XLSX.utils.book_new(); 
+    XLSX.utils.book_append_sheet(wb, ws, "Negocios");
     XLSX.writeFile(wb, "Negocios.xlsx");
   };
 
@@ -1267,7 +1644,7 @@ const AdminView = () => {
           <div className="text-center space-y-2"><Icon name="Lock" className="w-8 h-8 text-[#0a2540] mx-auto mb-4" /><h2 className="text-2xl font-black text-[#0a2540] uppercase">Acceso Maestro</h2></div>
           <form onSubmit={handleLogin} className="space-y-4">
             <input type="password" placeholder="Contraseña" className="w-full bg-slate-50 border p-4 rounded-2xl font-bold" value={password} onChange={(e) => setPassword(e.target.value)} />
-            <button type="submit" className="w-full py-4 bg-[#0a2540] text-yellow-400 rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl active:scale-95">Entrar</button>
+            <button type="submit" className="w-full py-4 bg-[#0a2540] text-yellow-400 rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl">Entrar</button>
           </form>
         </div>
       </div>
@@ -1279,179 +1656,233 @@ const AdminView = () => {
       <div className="flex flex-col lg:flex-row justify-between lg:items-center border-b border-slate-100 pb-10 gap-6">
         <div>
           <h2 className="text-4xl font-black text-[#0a2540] tracking-tighter uppercase leading-none">GESTIÓN MAESTRA</h2>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Panel de Control y Analíticas de Plataforma</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Panel de Control</p>
         </div>
         <div className="flex gap-4">
-          <button onClick={exportarAExcel} className="p-4 bg-green-50 rounded-2xl text-green-600 shadow-sm hover:shadow-md transition-all active:scale-95" title="Exportar Excel"><Icon name="Book" /></button>
-          <button onClick={handleLogout} className="p-4 bg-slate-50 rounded-2xl text-slate-600 shadow-sm hover:shadow-md transition-all active:scale-95" title="Cerrar Sesión"><Icon name="Lock" /></button>
+          <button onClick={exportarAExcel} className="p-4 bg-green-50 rounded-2xl text-green-600 shadow-sm hover:shadow-md"><Icon name="Book" /></button>
+          <button onClick={handleLogout} className="p-4 bg-slate-50 rounded-2xl text-slate-600 shadow-sm hover:shadow-md"><Icon name="Lock" /></button>
         </div>
       </div>
 
-      {/* --- DASHBOARD ANALÍTICO SUPERIOR --- */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in duration-500">
-        <div className="bg-gradient-to-br from-[#0a2540] to-[#144272] p-8 rounded-[2.5rem] text-white shadow-xl space-y-4">
-          <div className="flex justify-between items-start">
-            <div className="p-3 bg-white/10 rounded-2xl"><Icon name="Navigation" className="w-6 h-6 text-yellow-400" /></div>
-            <span className="text-[10px] font-black text-yellow-400 uppercase tracking-widest">+12%</span>
-          </div>
-          <div className="space-y-1">
-            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-60">Usuarios Activos</h4>
-            <p className="text-3xl font-black tracking-tighter leading-none">{activeUsers.toLocaleString()}</p>
-          </div>
-        </div>
-
-        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl space-y-4">
-          <div className="flex justify-between items-start">
-            <div className="p-3 bg-blue-50 rounded-2xl"><Icon name="MessageCircle" className="w-6 h-6 text-blue-600" /></div>
-            <span className="text-[10px] font-black text-green-500 uppercase tracking-widest">+8%</span>
-          </div>
-          <div className="space-y-1">
-            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-60 text-slate-400">Conversión Total</h4>
-            <p className="text-3xl font-black tracking-tighter leading-none text-[#0a2540]">{totalConversions.toLocaleString()}</p>
-          </div>
-        </div>
-
-        {/* --- GRÁFICO DE INTERACTIVIDAD --- */}
-        <div className="md:col-span-2 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl space-y-6">
-          <div className="flex items-center justify-between">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#0a2540]">Interactividad Digital (Social)</h4>
-            <div className="flex gap-4">
-              <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-600" /><span className="text-[8px] font-black uppercase text-slate-400">FB</span></div>
-              <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-pink-500" /><span className="text-[8px] font-black uppercase text-slate-400">IG</span></div>
-              <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-slate-900" /><span className="text-[8px] font-black uppercase text-slate-400">TK</span></div>
-            </div>
-          </div>
-          <div className="flex items-end justify-between gap-4 h-32 pt-2">
-            <div className="w-full flex flex-col items-center gap-2">
-              <div className="w-full bg-blue-600 rounded-xl transition-all duration-1000" style={{ height: '70%' }}></div>
-              <span className="text-[8px] font-black text-slate-400">{socialInteractivity.facebook}</span>
-            </div>
-            <div className="w-full flex flex-col items-center gap-2">
-              <div className="w-full bg-pink-500 rounded-xl transition-all duration-1000" style={{ height: '55%' }}></div>
-              <span className="text-[8px] font-black text-slate-400">{socialInteractivity.instagram}</span>
-            </div>
-            <div className="w-full flex flex-col items-center gap-2">
-              <div className="w-full bg-slate-900 rounded-xl transition-all duration-1000" style={{ height: '90%' }}></div>
-              <span className="text-[8px] font-black text-slate-400">{socialInteractivity.tiktok}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-x-auto relative min-h-[400px]">
+      <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-x-auto">
         <table className="w-full min-w-[800px]">
           <thead>
             <tr className="text-left bg-slate-50/30 border-b border-slate-100">
               <th className="py-6 px-8 text-[10px] font-black uppercase text-slate-400">Entidad</th>
-              <th className="py-6 px-4 text-[10px] font-black uppercase text-slate-400 text-center">Impacto</th>
               <th className="py-6 px-4 text-[10px] font-black uppercase text-slate-400 text-center">Estado</th>
               <th className="py-6 px-4 text-[10px] font-black uppercase text-slate-400 text-center">VIP</th>
               <th className="py-6 px-8 text-[10px] font-black uppercase text-slate-400 text-right">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {businesses.map((biz) => {
-              const impact = Math.floor(Math.random() * 500) + 120; // Simulación de vistas por negocio
-              return (
-                <tr key={biz.id} className="hover:bg-slate-50/50 group transition-colors">
-                  <td className="py-6 px-8">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-100 border shadow-sm">{biz.image ? <img src={biz.image} alt="" className="w-full h-full object-cover" /> : <Icon name="Image" className="w-6 h-6 m-3 text-slate-300" />}</div>
-                      <div><h4 className="font-black text-slate-900 uppercase text-xs truncate">{biz.name}</h4><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{biz.category}</p></div>
+            {businesses.map((biz) => (
+              <tr key={biz.id} className="hover:bg-slate-50/50">
+                <td className="py-6 px-8">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-100 border shadow-sm">{biz.image ? <img src={biz.image} alt="" className="w-full h-full object-cover" /> : <Icon name="Image" className="w-6 h-6 m-3 text-slate-300" />}</div>
+                    <div>
+                      <h4 className="font-black text-slate-900 uppercase text-xs">{biz.name}</h4>
+                      <p className="text-[9px] font-black text-slate-400 uppercase">{biz.category}</p>
+                      {biz.subCategory && <p className="text-[8px] text-blue-600 font-bold mt-0.5">↳ {biz.subCategory}</p>}
                     </div>
-                  </td>
-                  <td className="py-6 px-4 text-center">
-                    <div className="flex flex-col items-center gap-1">
-                      <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-50 rounded-lg border border-slate-100">
-                        <span className="text-[11px] font-black text-[#0a2540]">{impact}</span>
-                        {impact > 300 && <Icon name="Sparkles" className="w-3 h-3 text-yellow-500 fill-current" />}
+                  </div>
+                </td>
+                <td className="py-6 px-4 text-center">
+                  <span className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase ${biz.status === BusinessStatus.VERIFIED ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{biz.status.toUpperCase()}</span>
+                </td>
+                <td className="py-6 px-4 text-center">
+                  {biz.featured ? <div className="p-2 bg-yellow-50 rounded-xl inline-block"><Icon name="Star" className="w-4 h-4 text-yellow-400 fill-current" /></div> : <span className="text-[9px] font-black text-slate-300">NO</span>}
+                </td>
+                <td className="py-6 px-8 text-right relative">
+                  <div className="flex items-center justify-end gap-2">
+                    <button onClick={() => setMenuAbiertoId(menuAbiertoId === biz.id ? null : biz.id)} className={`p-2.5 rounded-xl ${menuAbiertoId === biz.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}><Icon name="MoreVertical" className="w-5 h-5" /></button>
+                    {menuAbiertoId === biz.id && (
+                      <div ref={menuRef} className="absolute right-20 top-0 bg-white border border-slate-100 shadow-2xl rounded-2xl p-2 z-[1000] w-48 text-left">
+                        <button onClick={() => toggleStatus(biz.id)} className="w-full px-4 py-3 hover:bg-slate-50 rounded-xl flex items-center gap-3 text-[11px] font-black uppercase"><Icon name="ShieldCheck" />{biz.status === BusinessStatus.VERIFIED ? 'Desverificar' : 'Verificar'}</button>
+                        <button onClick={() => toggleFeatured(biz.id)} className="w-full px-4 py-3 hover:bg-slate-50 rounded-xl flex items-center gap-3 text-[11px] font-black uppercase"><Icon name="Star" />{biz.featured ? 'Quitar VIP' : 'Destacar'}</button>
+                        <button onClick={() => openEditModal(biz)} className="w-full px-4 py-3 hover:bg-slate-50 rounded-xl flex items-center gap-3 text-[11px] font-black uppercase"><Icon name="Edit" />Editar</button>
+                        <div className="h-px bg-slate-50 my-1 mx-2"></div>
+                        <button onClick={() => deleteBusiness(biz.id)} className="w-full px-4 py-3 hover:bg-red-50 text-red-600 rounded-xl flex items-center gap-3 text-[11px] font-black uppercase"><Icon name="Trash2" />Eliminar</button>
                       </div>
-                      <span className="text-[7px] font-black text-slate-300 uppercase tracking-tighter">vistas totales</span>
-                    </div>
-                  </td>
-                  <td className="py-6 px-4 text-center">
-                    <span className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${biz.status === BusinessStatus.VERIFIED ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {biz.status.toUpperCase()}
-                    </span>
-                  </td>
-                  <td className="py-6 px-4 text-center">
-                    {biz.featured ? (
-                      <div className="p-2 bg-yellow-50 rounded-xl inline-block"><Icon name="Star" className="w-4 h-4 text-yellow-400 fill-current" /></div>
-                    ) : (
-                      <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">NO</span>
                     )}
-                  </td>
-                  <td className="py-6 px-8 text-right relative">
-                    <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => setMenuAbiertoId(menuAbiertoId === biz.id ? null : biz.id)} className={`p-2.5 rounded-xl transition-all ${menuAbiertoId === biz.id ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-100'}`}><Icon name="MoreVertical" className="w-5 h-5" /></button>
-                      {menuAbiertoId === biz.id && (
-                        <div ref={menuRef} className="absolute right-20 top-0 bg-white border border-slate-100 shadow-2xl rounded-2xl p-2 z-[1000] w-48 text-left animate-in fade-in slide-in-from-right-2 duration-200">
-                          <button onClick={() => toggleStatus(biz.id)} className="w-full px-4 py-3 hover:bg-slate-50 rounded-xl flex items-center gap-3 transition-colors group/opt">
-                            <Icon name="ShieldCheck" className={`${biz.status === BusinessStatus.VERIFIED ? 'text-amber-500' : 'text-green-500'} group-hover/opt:scale-110 transition-transform`} />
-                            <span className="text-[11px] font-black uppercase text-slate-600">{biz.status === BusinessStatus.VERIFIED ? 'Desverificar' : 'Verificar'}</span>
-                          </button>
-                          <button onClick={() => toggleFeatured(biz.id)} className="w-full px-4 py-3 hover:bg-slate-50 rounded-xl flex items-center gap-3 transition-colors group/opt">
-                            <Icon name="Star" className={`${biz.featured ? 'text-slate-400' : 'text-yellow-500'} group-hover/opt:scale-110 transition-transform`} />
-                            <span className="text-[11px] font-black uppercase text-slate-600">{biz.featured ? 'Quitar VIP' : 'Destacar VIP'}</span>
-                          </button>
-                          <button onClick={() => openEditModal(biz)} className="w-full px-4 py-3 hover:bg-slate-50 rounded-xl flex items-center gap-3 transition-colors group/opt">
-                            <Icon name="Edit" className="text-blue-500 group-hover/opt:scale-110 transition-transform" />
-                            <span className="text-[11px] font-black uppercase text-slate-600">Editar Info</span>
-                          </button>
-                          <div className="h-px bg-slate-50 my-1 mx-2"></div>
-                          <button onClick={() => deleteBusiness(biz.id)} className="w-full px-4 py-3 hover:bg-red-50 text-red-600 rounded-xl flex items-center gap-3 transition-colors group/opt">
-                            <Icon name="Trash2" className="group-hover/opt:scale-110 transition-transform" />
-                            <span className="text-[11px] font-black uppercase">Eliminar</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
+                  </div>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
 
-      {isModalOpen && (
+      {isModalOpen && editingBusiness && (
         <div className="fixed inset-0 bg-[#0a2540]/60 backdrop-blur-sm z-[2000] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-8 md:p-10 space-y-6 shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center"><h2 className="text-2xl font-black text-[#0a2540] uppercase tracking-tighter">Editar Negocio</h2><button onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 hover:text-red-500"><Icon name="X" /></button></div>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase text-slate-400 ml-2">Fotografía de Portada</label>
-                <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <div className="w-20 h-20 rounded-xl overflow-hidden bg-slate-200 shrink-0 border border-slate-200 shadow-sm">
-                    {editingBusiness?.image ? <img src={editingBusiness.image} className="w-full h-full object-cover" /> : <Icon name="Image" className="w-8 h-8 m-6 text-slate-400" />}
+          <div className="bg-white w-full max-w-lg rounded-[3rem] p-8 space-y-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center">
+              <h2 className="text-3xl font-black text-[#0a2540] uppercase tracking-tighter">Editar Negocio</h2>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 hover:text-red-500">
+                <Icon name="X" className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-5">
+
+              {/* PORTADA */}
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 block">Imagen de Portada</label>
+                <div className="flex items-center gap-5 p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                  <div className="w-20 h-20 rounded-xl overflow-hidden border border-slate-200 shrink-0 bg-slate-100">
+                    {editingBusiness.image
+                      ? <img src={editingBusiness.image} className="w-full h-full object-cover" alt="Portada" />
+                      : <div className="w-full h-full flex items-center justify-center"><Icon name="Image" className="w-6 h-6 text-slate-300" /></div>
+                    }
                   </div>
                   <div className="flex-1 space-y-2">
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      className="hidden" 
-                      id="edit-img-admin" 
-                      onChange={async (e) => { 
-                        if (e.target.files?.[0]) { 
-                          const reader = new FileReader();
-                          reader.onload = async () => {
-                            const compressed = await compressImage(reader.result as string);
-                            setEditingBusiness(p => ({ ...p, image: compressed }));
-                          };
-                          reader.readAsDataURL(e.target.files[0]);
-                        } 
-                      }} 
-                    />
-                    <label htmlFor="edit-img-admin" className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[9px] font-black uppercase tracking-widest cursor-pointer hover:bg-slate-50 shadow-sm transition-all active:scale-95 inline-block">Cambiar Foto</label>
-                    <p className="text-[8px] font-bold text-slate-400 uppercase">Se comprimirá automáticamente</p>
+                    <input type="file" accept="image/*" id="admin-portada" className="hidden" onChange={async (e) => {
+                      if (e.target.files?.[0]) {
+                        const reader = new FileReader();
+                        reader.onload = async () => {
+                          const compressed = await compressImage(reader.result as string);
+                          setEditingBusiness(prev => prev ? {...prev, image: compressed} : prev);
+                        };
+                        reader.readAsDataURL(e.target.files[0]);
+                      }
+                    }} />
+                    <label htmlFor="admin-portada" className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[9px] font-black uppercase cursor-pointer hover:bg-blue-50 hover:border-blue-300 shadow-sm inline-flex items-center gap-2 transition-all">
+                      <Icon name="Image" className="w-3.5 h-3.5 text-blue-600" />
+                      {editingBusiness.image ? 'Cambiar Portada' : 'Subir Portada'}
+                    </label>
                   </div>
                 </div>
               </div>
-              <div className="space-y-1"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Nombre del Negocio</label><input type="text" className="w-full bg-slate-50 border border-slate-200 p-4 rounded-xl font-bold outline-none focus:ring-2 focus:ring-blue-600/10" value={editingBusiness?.name || ''} onChange={e => setEditingBusiness({...editingBusiness, name: e.target.value})} /></div>
-              <div className="space-y-1"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Descripción</label><textarea className="w-full bg-slate-50 border border-slate-200 p-4 rounded-xl font-bold h-24 resize-none outline-none focus:ring-2 focus:ring-blue-600/10" value={editingBusiness?.description || ''} onChange={e => setEditingBusiness({...editingBusiness, description: e.target.value})} /></div>
-              <div className="space-y-1"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Dirección Física</label><input type="text" className="w-full bg-slate-50 border border-slate-200 p-4 rounded-xl font-bold outline-none focus:ring-2 focus:ring-blue-600/10" value={editingBusiness?.address || ''} onChange={e => setEditingBusiness({...editingBusiness, address: e.target.value})} /></div>
+
+              {/* NOMBRE */}
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 block">Nombre</label>
+                <input 
+                  type="text" 
+                  className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold outline-none"
+                  value={editingBusiness.name || ''} 
+                  onChange={e => setEditingBusiness({...editingBusiness, name: e.target.value})} 
+                />
+              </div>
+
+              {/* DESCRIPCIÓN */}
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 block">Descripción</label>
+                <textarea 
+                  className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold h-24 resize-none outline-none"
+                  value={editingBusiness.description || ''} 
+                  onChange={e => setEditingBusiness({...editingBusiness, description: e.target.value})}
+                />
+              </div>
+
+              {/* DIRECCIÓN */}
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 block">Dirección</label>
+                <input 
+                  type="text" 
+                  className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold outline-none"
+                  value={editingBusiness.address || ''} 
+                  onChange={e => setEditingBusiness({...editingBusiness, address: e.target.value})} 
+                />
+              </div>
+
+              {/* SUBCATEGORÍA */}
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 block">
+                  Subcategoría {editingBusiness.subCategory ? '' : '(No asignada)'}
+                </label>
+                <select 
+                  className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold outline-none"
+                  value={editingBusiness.subCategory || ''}
+                  onChange={e => setEditingBusiness({...editingBusiness, subCategory: e.target.value})}
+                >
+                  <option value="">Seleccionar subcategoría...</option>
+                  {CATEGORIES.map(cat => (
+                    <optgroup key={cat.id} label={cat.name}>
+                      {cat.subCategories.map(sub => (
+                        <option key={sub.id} value={sub.id}>
+                          {sub.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+
+              {/* GALERÍA — Admin puede agregar, reemplazar y eliminar */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">
+                    Galería ({(editingBusiness.gallery || []).length}/{(() => { const t = editingBusiness.tier; return t === 'pro' ? 14 : t === 'plus' ? 7 : 3; })()})
+                  </label>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase bg-slate-100 px-3 py-1 rounded-lg">
+                    Plan {(editingBusiness.tier || 'lite').toUpperCase()}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {(editingBusiness.gallery || []).map((img, idx) => (
+                    <div key={idx} className="relative aspect-square rounded-xl overflow-hidden shadow-sm border border-slate-200 group bg-slate-50">
+                      <img src={img} className="w-full h-full object-cover" alt={`Foto ${idx + 1}`} />
+                      {/* Overlay con acciones al hover */}
+                      <div className="absolute inset-0 bg-[#0a2540]/60 flex flex-col items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {/* Reemplazar */}
+                        <label className="px-2.5 py-1.5 bg-white/90 rounded-lg text-[8px] font-black uppercase cursor-pointer hover:bg-white flex items-center gap-1.5 shadow-sm">
+                          <Icon name="Image" className="w-3 h-3 text-blue-600" />Reemplazar
+                          <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                            if (e.target.files?.[0]) {
+                              const reader = new FileReader();
+                              reader.onload = async () => {
+                                const compressed = await compressImage(reader.result as string);
+                                setEditingBusiness(prev => {
+                                  if (!prev) return prev;
+                                  const g = [...(prev.gallery || [])];
+                                  g[idx] = compressed;
+                                  return { ...prev, gallery: g };
+                                });
+                              };
+                              reader.readAsDataURL(e.target.files[0]);
+                            }
+                          }} />
+                        </label>
+                        {/* Eliminar */}
+                        <button type="button" onClick={() => {
+                          setEditingBusiness(prev => prev ? { ...prev, gallery: (prev.gallery || []).filter((_, i) => i !== idx) } : prev);
+                        }} className="px-2.5 py-1.5 bg-red-500/90 text-white rounded-lg text-[8px] font-black uppercase flex items-center gap-1.5 hover:bg-red-600 shadow-sm">
+                          <Icon name="Trash2" className="w-3 h-3" />Eliminar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {/* Slot para agregar nueva imagen */}
+                  {(editingBusiness.gallery || []).length < (() => { const t = editingBusiness.tier; return t === 'pro' ? 14 : t === 'plus' ? 7 : 3; })() && (
+                    <label className="relative aspect-square rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer bg-slate-50 hover:bg-blue-50 hover:border-blue-300 transition-all group">
+                      <Icon name="PlusCircle" className="text-slate-300 group-hover:text-blue-500 w-5 h-5" />
+                      <span className="text-[8px] font-black uppercase text-slate-400 mt-1 group-hover:text-blue-500">Agregar</span>
+                      <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                        if (e.target.files?.[0]) {
+                          const reader = new FileReader();
+                          reader.onload = async () => {
+                            const compressed = await compressImage(reader.result as string);
+                            setEditingBusiness(prev => prev ? { ...prev, gallery: [...(prev.gallery || []), compressed] } : prev);
+                          };
+                          reader.readAsDataURL(e.target.files[0]);
+                        }
+                      }} />
+                    </label>
+                  )}
+                </div>
+              </div>
+
             </div>
-            <div className="flex gap-4 pt-4"><button onClick={() => setIsModalOpen(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all">Descartar</button><button onClick={handleSaveEdit} className="flex-1 py-4 bg-[#0a2540] text-yellow-400 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:shadow-blue-900/20 active:scale-95 transition-all">Guardar</button></div>
+
+            <div className="flex gap-4 pt-4">
+              <button onClick={() => setIsModalOpen(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs tracking-widest">
+                Cancelar
+              </button>
+              <button onClick={handleSaveEdit} className="flex-1 py-4 bg-[#0a2540] text-yellow-400 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl">
+                Guardar Cambios
+              </button>
+            </div>
           </div>
         </div>
       )}

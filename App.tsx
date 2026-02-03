@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './index.css';
 import { HashRouter, Routes, Route, Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Layout } from './components/Layout.tsx';
-import { CATEGORIES, Business, BusinessStatus, MembershipTier } from './types.ts';
-import { MOCK_BUSINESSES } from './constants.tsx';
-import { Icon } from './components/Icons.tsx';
-import { generateBusinessDescription } from './services/geminiService.ts';
+import { Layout } from './components/Layout';
+import { CATEGORIES, Business, BusinessStatus, MembershipTier } from './types';
+import { MOCK_BUSINESSES } from './constants';
+import { Icon } from './components/Icons';
+import { generateBusinessDescription } from './services/geminiService';
 import * as XLSX from 'xlsx';
 
 // Firebase
-import { db, storage } from './firebase.ts';
+import { db, storage } from './firebase';
 import { 
   collection, 
   addDoc, 
@@ -33,6 +33,10 @@ const DefaultIcon = L.icon({
   iconAnchor: [12, 41],
 });
 L.Marker.prototype.options.icon = DefaultIcon;
+
+// Honduras center coordinates
+const HONDURAS_CENTER: [number, number] = [14.0816, -86.8735];
+const HONDURAS_ZOOM = 8;
 
 const DB_KEY = 'negocios_hn_local_db_stable';
 const ADMIN_AUTH_KEY = 'negocios_hn_admin_session';
@@ -78,9 +82,9 @@ const mapFirestoreToBusiness = (doc: any): Business => {
     featured: data.VIP || data.featured || false,
     rating: data.rating || 5.0,
     hours: data.hours || '08:00 AM - 05:00 PM',
-    lat: data.lat || 15.6333,
-    lng: data.lng || -87.1167,
-    tier: data.tier || MembershipTier.LITE,
+    lat: data.lat || 14.936958286959436,
+    lng: data.lng || -86.5828171827915,
+    tier: data.tier || MembershipTier.INICIA,
     facebook: data.facebook || '',
     instagram: data.instagram || '',
     tiktok: data.tiktok || '',
@@ -517,9 +521,8 @@ const BusinessDetailView = () => {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [lightboxCaption, setLightboxCaption] = useState<string>('');
   const [lightboxLoading, setLightboxLoading] = useState(false);
+  const [showOwnerModal, setShowOwnerModal] = useState(false);
   const navigate = useNavigate();
-
-  // Ref para acceder a biz actual dentro del keyboard handler sin dep array
   const bizRef = useRef<Business | null>(null);
   bizRef.current = biz;
 
@@ -648,9 +651,9 @@ const BusinessDetailView = () => {
   // Límite de galería según tier
   const getOwnerMaxGallery = () => {
     switch (biz?.tier) {
-      case MembershipTier.LITE: return 3;   // 4 total - 1 portada
-      case MembershipTier.PLUS: return 7;   // 8 total - 1 portada
-      case MembershipTier.PRO: return 14;   // 15 total - 1 portada
+      case MembershipTier.INICIA: return 4;   // 5 total - 1 portada
+      case MembershipTier.IMPULSA: return 14;   // 15 total - 1 portada
+      case MembershipTier.DOMINA: return 44;   // 45 total - 1 portada
       default: return 3;
     }
   };
@@ -743,34 +746,7 @@ const BusinessDetailView = () => {
                 <div className="flex items-center gap-3"><div className="w-1 h-6 bg-blue-600 rounded-full" /><h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600">Descripción</h3></div>
                 <p className="text-base md:text-lg text-slate-600 leading-relaxed font-medium bg-slate-50 p-6 rounded-3xl border border-slate-100/50">{biz.description}</p>
                 
-                <div className="mt-12 pt-10 border-t border-slate-100/50">
-                  <div className="bg-slate-50/50 rounded-[2rem] p-6 border border-slate-100">
-                    {!isAuth ? (
-                      <div className="flex flex-col md:flex-row items-center gap-4">
-                        <div className="flex-1 w-full relative">
-                          <Icon name="Lock" className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-4 h-4" />
-                          <input 
-                            type="password" 
-                            placeholder="Contraseña del Propietario" 
-                            className="w-full bg-white border border-slate-200 py-3 pl-11 pr-4 rounded-xl font-bold text-xs outline-none focus:ring-2 focus:ring-blue-600/10" 
-                            value={passwordInput} 
-                            onChange={(e) => setPasswordInput(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleVerify(); } }}
-                          />
-                        </div>
-                        <button onClick={handleVerify} className="w-full md:w-auto px-8 py-3 bg-[#0a2540] text-yellow-400 rounded-xl font-black uppercase text-[9px] tracking-widest shadow-lg active:scale-95 transition-all">Gestionar Mi Negocio</button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600"><Icon name="ShieldCheck" className="w-5 h-5" /></div>
-                          <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Acceso Verificado</span>
-                        </div>
-                        <button onClick={() => setIsEditing(true)} className="px-8 py-3 bg-blue-600 text-white rounded-xl font-black uppercase text-[9px] tracking-widest shadow-xl active:scale-95 transition-all flex items-center gap-2"><Icon name="Edit" className="w-4 h-4" />Editar</button>
-                      </div>
-                    )}
-                  </div>
-                </div>
+
               </div>
 
               {biz.gallery && biz.gallery.length > 0 && (
@@ -806,8 +782,15 @@ const BusinessDetailView = () => {
                   <div className="space-y-6">
                     <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600">Información</h3>
                     <div className="flex items-start gap-4 text-slate-700">
-                      <div className="p-4 bg-blue-50 rounded-2xl shrink-0"><Icon name="MapPin" className="text-blue-600 w-5 h-5" /></div>
-                      <div className="space-y-1 pt-1"><span className="text-[9px] font-black uppercase text-slate-400 block tracking-widest">Dirección</span><span className="text-sm font-bold leading-snug">{biz.address}</span></div>
+                      <div className="space-y-1 pt-1 flex-1"><span className="text-[9px] font-black uppercase text-slate-400 block tracking-widest">Dirección</span><span className="text-sm font-bold leading-snug">{biz.address}</span></div>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/map?lat=${biz.lat}&lng=${biz.lng}&name=${encodeURIComponent(biz.name)}`)}
+                        title="Ver ubicación en mapa"
+                        className="p-3 bg-green-50 hover:bg-green-600 text-green-600 hover:text-white rounded-2xl transition-all active:scale-90 shrink-0 shadow-sm border border-green-200 hover:border-green-600 hover:shadow-md"
+                      >
+                        <Icon name="Crosshair" className="w-4 h-4" />
+                      </button>
                     </div>
                     <div className="flex items-start gap-4 text-slate-700">
                       <div className="p-4 bg-blue-50 rounded-2xl shrink-0"><Icon name="Clock" className="text-blue-600 w-5 h-5" /></div>
@@ -820,6 +803,16 @@ const BusinessDetailView = () => {
                     <div className="flex flex-col gap-4">
                       <a href={`tel:${biz.phone}`} className="w-full py-5 bg-[#0a2540] text-yellow-400 rounded-2xl font-black flex items-center justify-center gap-3 transition-all hover:shadow-2xl active:scale-95 uppercase text-[10px] tracking-widest border border-white/10"><Icon name="Phone" className="w-4 h-4" />Llamar</a>
                       <a href={`https://wa.me/${biz.whatsapp}`} target="_blank" rel="noopener noreferrer" className="w-full py-5 bg-green-500 text-white rounded-2xl font-black flex items-center justify-center gap-3 transition-all hover:shadow-2xl active:scale-95 uppercase text-[10px] tracking-widest"><Icon name="MessageCircle" className="w-4 h-4" />WhatsApp</a>
+                    </div>
+                    {/* Link sutil para el propietario */}
+                    <div className="pt-2 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setShowOwnerModal(true)}
+                        className="text-[10px] font-bold text-slate-300 hover:text-blue-500 transition-colors underline underline-offset-3"
+                      >
+                        Cuenta
+                      </button>
                     </div>
                   </div>
 
@@ -911,6 +904,84 @@ const BusinessDetailView = () => {
         </div>
       )}
 
+      {/* MODAL CUENTA — login del propietario */}
+      {showOwnerModal && (
+        <div className="fixed inset-0 bg-[#0a2540]/60 backdrop-blur-md z-[3000] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-[3rem] p-10 space-y-8 shadow-2xl">
+
+            {/* Header */}
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-[#0a2540] flex items-center justify-center">
+                  <Icon name="Lock" className="w-5 h-5 text-yellow-400" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-[#0a2540] uppercase tracking-tighter leading-none">Cuenta</h2>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Acceso del propietario</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowOwnerModal(false); setPasswordInput(''); }}
+                className="p-2 text-slate-300 hover:text-red-500 transition-colors"
+              >
+                <Icon name="X" className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            {!isAuth ? (
+              <div className="space-y-5">
+                <p className="text-[11px] text-slate-500 font-medium leading-relaxed text-center">
+                  Ingresa la contraseña asociada a este negocio para poder editar su información.
+                </p>
+                <div className="relative">
+                  <Icon name="Lock" className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-4.5 h-4.5" />
+                  <input
+                    type="password"
+                    placeholder="Contraseña"
+                    autoFocus
+                    className="w-full bg-slate-50 border border-slate-200 py-4 pl-12 pr-4 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-600/15 focus:border-blue-300 transition-all"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleVerify(); } }}
+                  />
+                </div>
+                <button
+                  onClick={handleVerify}
+                  className="w-full py-4 bg-[#0a2540] text-yellow-400 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all"
+                >
+                  Verificar
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Confirmación de acceso */}
+                <div className="flex items-center justify-center gap-3 py-4 bg-green-50 rounded-2xl border border-green-100">
+                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+                    <Icon name="ShieldCheck" className="w-5 h-5" />
+                  </div>
+                  <span className="text-[11px] font-black uppercase text-green-700 tracking-widest">Acceso Verificado</span>
+                </div>
+                {/* CTA Editar */}
+                <button
+                  onClick={() => { setIsEditing(true); setShowOwnerModal(false); }}
+                  className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2"
+                >
+                  <Icon name="Edit" className="w-4 h-4" /> Editar Mi Negocio
+                </button>
+                {/* Cerrar */}
+                <button
+                  onClick={() => setShowOwnerModal(false)}
+                  className="w-full py-3 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[9px] tracking-widest active:scale-95 transition-all"
+                >
+                  Cerrar
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {isEditing && editData && (
         <div className="fixed inset-0 bg-[#0a2540]/60 backdrop-blur-md z-[3000] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-lg rounded-[3.5rem] p-10 space-y-8 shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -995,90 +1066,123 @@ const BusinessDetailView = () => {
   );
 };
 
-// --- MapView (Completo) ---
+// --- MapView (Leaflet – centrado en Honduras) ---
+
+// Sub-componente: vuela al marcador indicado por los query-params
+const FlyToMarker = ({ businesses, targetName }: { businesses: Business[]; targetName: string | null }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (!targetName) {
+      // Sin parámetro → centrar Honduras
+      map.flyTo(HONDURAS_CENTER, HONDURAS_ZOOM, { duration: 1.2 });
+      return;
+    }
+    const target = businesses.find(b => b.name === targetName);
+    if (target) {
+      map.flyTo([target.lat, target.lng], 15, { duration: 1.2 });
+    }
+  }, [businesses, targetName, map]);
+  return null;
+};
+
 const MapView = () => {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const searchParams = useSearchParams()[0];
 
+  // Parámetros de URL (cuando se llega desde un negocio específico)
+  const paramLat  = searchParams.get('lat');
+  const paramLng  = searchParams.get('lng');
+  const paramName = searchParams.get('name');
+  const targetName = paramName ? decodeURIComponent(paramName) : null;
+
+  // Centro inicial del mapa
+  const initCenter: [number, number] = paramLat && paramLng
+    ? [parseFloat(paramLat), parseFloat(paramLng)]
+    : HONDURAS_CENTER;
+  const initZoom = paramLat && paramLng ? 15 : HONDURAS_ZOOM;
+
+  // ---------------------------------------------------------------------------
+  // Firestore
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     const q = query(collection(db, 'negocios'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(mapFirestoreToBusiness).filter(b => b.status === BusinessStatus.VERIFIED);
-      setBusinesses(data);
+    const unsub = onSnapshot(q, (snapshot) => {
+      setBusinesses(snapshot.docs.map(mapFirestoreToBusiness).filter(b => b.status === BusinessStatus.VERIFIED));
     });
-    return () => unsubscribe();
+    return () => unsub();
   }, []);
 
+  // ---------------------------------------------------------------------------
+  // Filtrado expandido: nombre, descripción, dirección, categoría
+  // ---------------------------------------------------------------------------
   const filtered = businesses.filter(b => {
+    if (!searchQuery.trim()) return true;                      // sin texto → todo
     const q = searchQuery.toLowerCase();
-    const catName = CATEGORIES.find(c => c.id === b.category)?.name || '';
-    return b.name.toLowerCase().includes(q) || catName.toLowerCase().includes(q) || b.address.toLowerCase().includes(q);
+    const catName = (CATEGORIES.find(c => c.id === b.category)?.name || '').toLowerCase();
+    return (
+      b.name.toLowerCase().includes(q) ||
+      (b.description || '').toLowerCase().includes(q) ||
+      (b.address || '').toLowerCase().includes(q) ||
+      catName.includes(q)
+    );
   });
 
-  const LocateControl = () => {
-    const map = useMap();
-    const findMe = () => {
-      if (!navigator.geolocation) {
-        alert("Geolocalización no soportada");
-        return;
-      }
-      map.locate().on('locationfound', (e) => {
-        setUserLocation([e.latlng.lat, e.latlng.lng]);
-        map.flyTo(e.latlng, 15);
-      }).on('locationerror', () => {
-        alert("No se pudo obtener tu ubicación");
-      });
-    };
-
-    return (
-      <button onClick={findMe} className="absolute bottom-10 right-6 z-[1000] p-4 bg-white text-[#0a2540] rounded-2xl shadow-2xl border border-slate-100 transition-all hover:scale-110 active:scale-90 flex items-center justify-center" title="Mi ubicación">
-        <Icon name="Navigation" className="w-6 h-6" />
-      </button>
-    );
-  };
-
-  const createCustomIcon = () => {
-    return L.divIcon({
-      html: `<div class="relative"><div class="w-10 h-10 bg-white rounded-2xl shadow-xl border-2 border-blue-600 flex items-center justify-center"><div class="text-blue-600"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg></div></div><div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-blue-600 rotate-45"></div></div>`,
+// Sub-componente: renderiza los marcadores. Vive DENTRO de MapContainer
+// para que react-leaflet lo re-renderice cuando sus props cambien.
+const MarkerLayer = ({
+  filtered,
+  targetName,
+}: {
+  filtered: Business[];
+  targetName: string | null;
+}) => {
+  const createBusinessIcon = (isTarget: boolean) =>
+    L.divIcon({
+      html: `<div style="position:relative;width:36px;height:36px;">
+        <div style="width:36px;height:36px;background:#fff;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.25);border:3px solid ${isTarget ? '#facc15' : '#2563eb'};display:flex;align-items:center;justify-content:center;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${isTarget ? '#facc15' : '#2563eb'}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>
+        </div>
+        <div style="position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);width:10px;height:10px;background:${isTarget ? '#facc15' : '#2563eb'};transform:translateX(-50%) rotate(45deg);"></div>
+      </div>`,
       className: '',
-      iconSize: [40, 40],
-      iconAnchor: [20, 40],
-      popupAnchor: [0, -35]
+      iconSize: [36, 42],
+      iconAnchor: [18, 42],
+      popupAnchor: [0, -38],
     });
-  };
 
   return (
-    <div className="relative h-[calc(100vh-140px)] w-full overflow-hidden bg-slate-50 md:rounded-[2.5rem] shadow-inner border border-slate-100">
-      <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1000] w-[90%] max-w-lg">
-        <div className="relative group">
-          <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">
-            <Icon name="Search" className="w-5 h-5" />
-          </div>
-          <input type="text" placeholder="Buscar en el mapa..." className="w-full bg-white/95 backdrop-blur-xl border border-slate-200 rounded-3xl py-4 pl-14 pr-6 font-bold shadow-2xl focus:ring-4 focus:ring-blue-600/10 transition-all outline-none" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-        </div>
-      </div>
-
-      <MapContainer center={[15.6333, -87.1167]} zoom={14} style={{ height: '100%', width: '100%' }} zoomControl={false}>
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' />
-        
-        {filtered.map(biz => (
-          <Marker key={biz.id} position={[biz.lat, biz.lng]} icon={createCustomIcon()}>
+    <>
+      {filtered.map(biz => {
+        const isTarget = targetName === biz.name;
+        return (
+          <Marker
+            key={biz.id}
+            position={[biz.lat, biz.lng]}
+            icon={createBusinessIcon(isTarget)}
+            zIndexOffset={isTarget ? 999 : 0}
+            ref={(marker) => {
+              if (marker && isTarget) {
+                setTimeout(() => marker.openPopup(), 600);
+              }
+            }}
+          >
             <Popup className="custom-leaflet-popup">
-              <div className="w-[260px] bg-white rounded-3xl overflow-hidden shadow-2xl border border-slate-100">
-                <div className="relative h-28">
-                   <img src={biz.image} alt="" className="w-full h-full object-cover" />
-                   <div className="absolute top-3 left-3 bg-white/90 backdrop-blur px-2 py-1 rounded-xl flex items-center gap-1 shadow-sm">
-                      <Icon name="Star" className="w-2.5 h-2.5 text-amber-500 fill-current" />
-                      <span className="text-[9px] font-black text-slate-800">{biz.rating}</span>
-                   </div>
+              <div className="w-[250px] bg-white rounded-2xl overflow-hidden shadow-xl border border-slate-100">
+                <div className="relative h-28 overflow-hidden">
+                  <img src={biz.image} alt="" className="w-full h-full object-cover" />
+                  <div className="absolute top-2 left-2 bg-white/90 backdrop-blur px-2 py-1 rounded-xl flex items-center gap-1 shadow-sm">
+                    <Icon name="Star" className="w-2.5 h-2.5 text-amber-500 fill-current" />
+                    <span className="text-[9px] font-black text-slate-800">{biz.rating}</span>
+                  </div>
                 </div>
-                <div className="p-4 space-y-3">
-                  <h4 className="font-black text-[#0a2540] uppercase text-xs leading-tight line-clamp-1">{biz.name}</h4>
+                <div className="p-4 space-y-2">
+                  <h4 className="font-black text-[#0a2540] uppercase text-xs leading-tight truncate">{biz.name}</h4>
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{CATEGORIES.find(c => c.id === biz.category)?.name}</p>
+                  <p className="text-[9px] text-slate-500 leading-snug line-clamp-2">{biz.address}</p>
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     <Link to={`/business/${biz.id}`} className="py-2.5 bg-[#0a2540] text-yellow-400 rounded-xl text-[9px] font-black uppercase text-center tracking-widest">Ver Perfil</Link>
-                    <a href={`https://wa.me/${biz.whatsapp}`} target="_blank" className="py-2.5 bg-green-500 text-white rounded-xl text-[9px] font-black uppercase text-center tracking-widest flex items-center justify-center gap-1.5">
+                    <a href={`https://wa.me/${biz.whatsapp}`} target="_blank" rel="noopener noreferrer" className="py-2.5 bg-green-500 text-white rounded-xl text-[9px] font-black uppercase text-center tracking-widest flex items-center justify-center gap-1.5">
                       <Icon name="MessageCircle" className="w-3 h-3" />WhatsApp
                     </a>
                   </div>
@@ -1086,24 +1190,90 @@ const MapView = () => {
               </div>
             </Popup>
           </Marker>
-        ))}
+        );
+      })}
+    </>
+  );
+};
 
-        {userLocation && (
-          <Marker position={userLocation} icon={L.divIcon({
-            html: `<div class="w-6 h-6 bg-blue-600 rounded-full border-4 border-white shadow-2xl animate-pulse"></div>`,
-            className: '',
-            iconSize: [24, 24],
-            iconAnchor: [12, 12],
-          })}>
-            <Popup>Tu ubicación</Popup>
-          </Marker>
-        )}
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
+  return (
+    <div className="relative h-[calc(100vh-140px)] w-full overflow-hidden bg-slate-50 md:rounded-[2.5rem] shadow-inner border border-slate-100">
 
-        <LocateControl />
+      {/* Buscador flotante */}
+      <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1000] w-[90%] max-w-lg">
+        <div className="relative group">
+          <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">
+            <Icon name="Search" className="w-5 h-5" />
+          </div>
+          <input
+            type="text"
+            placeholder="Buscar negocio, lugar, producto o servicio..."
+            className="w-full bg-white/95 backdrop-blur-xl border border-slate-200 rounded-3xl py-4 pl-14 pr-6 font-bold shadow-2xl focus:ring-4 focus:ring-blue-600/10 transition-all outline-none"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+              <Icon name="X" className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Mapa */}
+      <MapContainer center={initCenter} zoom={initZoom} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+
+        {/* Tiles: CartoDB Positron (limpio, moderno, gratuito, sin API key) */}
+        <TileLayer
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          maxZoom={19}
+        />
+
+        {/* Volar al negocio objetivo (o a Honduras) */}
+        <FlyToMarker businesses={businesses} targetName={targetName} />
+
+        {/* Marcadores (componente hijo para que reaccione al filtro) */}
+        <MarkerLayer filtered={filtered} targetName={targetName} />
       </MapContainer>
 
+      {/* Botones flotantes abajo-derecha */}
+      <div className="absolute bottom-10 right-6 z-[1000] flex flex-col gap-3">
+        {/* Centrar en Mora-Grafic's */}
+        <button
+          onClick={() => {
+            window.location.hash = `/map?name=${encodeURIComponent("Mora-Grafic's")}`;
+          }}
+          className="p-4 bg-white text-[#0a2540] rounded-2xl shadow-2xl border border-slate-100 transition-all hover:scale-110 active:scale-90 flex items-center justify-center"
+          title="Mora-Grafic's"
+        >
+          <Icon name="MapPin" className="w-6 h-6" />
+        </button>
+        {/* Mi ubicación */}
+        <button
+          onClick={() => {
+            if (!navigator.geolocation) return alert('Geolocalización no soportada');
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                // Navegar al mapa centrado en la ubicación del usuario
+                window.location.hash = `/map?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`;
+              },
+              () => alert('No se pudo obtener tu ubicación')
+            );
+          }}
+          className="p-4 bg-white text-[#0a2540] rounded-2xl shadow-2xl border border-slate-100 transition-all hover:scale-110 active:scale-90 flex items-center justify-center"
+          title="Mi ubicación"
+        >
+          <Icon name="Navigation" className="w-6 h-6" />
+        </button>
+      </div>
+
+      {/* Estilos para popup de Leaflet */}
       <style>{`
-        .leaflet-popup-content-wrapper { padding: 0 !important; background: transparent !important; box-shadow: none !important; }
+        .leaflet-popup-content-wrapper { padding: 0 !important; background: transparent !important; box-shadow: none !important; border-radius: 16px !important; overflow: hidden !important; }
         .leaflet-popup-content { margin: 0 !important; width: auto !important; }
         .leaflet-popup-tip-container { display: none !important; }
         .leaflet-container { background: #f8fafc !important; }
@@ -1114,37 +1284,196 @@ const MapView = () => {
 
 // --- MembershipView (Completo) ---
 const MembershipView = () => {
+  const [yearly, setYearly] = useState(false);
+
   const plans = [
-    { name: 'PLAN LITE', tierSlug: 'lite', icon: 'Rocket', price: 'L 375', period: '/ mes', description: 'El primer paso para digitalizar tu negocio', recommended: false, features: ['Perfil Verificado', 'Presencia en Buscador', '4 Fotos (1 Portada + 3 Galería)', 'Panel de Control'], buttonText: 'ELEGIR', variant: 'default' },
-    { name: 'PLAN PLUS', tierSlug: 'plus', icon: 'Trophy', price: 'L 600', period: '/ mes', description: 'Ideal para convertir visitas en clientes', recommended: true, features: ['Todo de Lite', 'Botón WhatsApp', 'Mayor Alcance (Feed)', '8 Fotos (1 Portada + 7 Galería)', 'Prioridad en Búsqueda'], buttonText: 'ELEGIR', variant: 'highlight' },
-    { name: 'PLAN PRO', tierSlug: 'pro', icon: 'ShieldCheck', price: 'L 850', period: '/ mes', description: 'Para quienes quieren dominar su categoría', recommended: false, features: ['Todo de Plus', 'Redes Sociales', 'Posicionamiento VIP (Top)', '15 Fotos (1 Portada + 14 Galería)', 'Asistente IA'], buttonText: 'ELEGIR', variant: 'default' }
+    {
+      name: 'PLAN INICIA',
+      tierSlug: 'lite',
+      icon: 'Rocket',
+      badge: 'OFERTA LANZAMIENTO',
+      description: 'El primer paso para digitalizar tu negocio',
+      monthly: 375,
+      yearly: 150,
+      yearlyFixed: true,
+      variant: 'default' as const,
+      features: [
+        'Perfil verificado',
+        'Botón WhatsApp y llamadas',
+        '4 Fotos (1 Portada + 3 Galería)',
+        'Ubicación en mapa interactivo',
+        '1 promoción mensual',
+        '1 boost de visibilidad',
+        'Estadísticas básicas',
+      ]
+    },
+    {
+      name: 'PLAN IMPULSA',
+      tierSlug: 'plus',
+      icon: 'Trophy',
+      badge: 'EL MÁS POPULAR',
+      description: 'Ideal para convertir visitas en clientes',
+      monthly: 600,
+      yearly: 6000 * 10,
+      yearlyFixed: false,
+      variant: 'highlight' as const,
+      features: [
+        'Todo lo del Plan Inicia',
+        'Posición prioritaria en búsquedas',
+        '8 Fotos (1 Portada + 7 Galería)',
+        'WhatsApp destacado',
+        'Publicaciones ilimitadas',
+        '3 boosts de visibilidad',
+        'Estadísticas avanzadas',
+        '1 diseño profesional',
+      ]
+    },
+    {
+      name: 'PLAN DOMINA',
+      tierSlug: 'pro',
+      icon: 'ShieldCheck',
+      badge: 'MÁXIMA EXPOSICIÓN',
+      description: 'Para quienes quieren dominar su categoría',
+      monthly: 850,
+      yearly: 8500 * 10,
+      yearlyFixed: false,
+      variant: 'default' as const,
+      features: [
+        'Todo lo del Plan Impulsa',
+        'Primeros lugares garantizados',
+        'Tu negocio en Destacados (VIP)',
+        '15 Fotos (1 Portada + 14 Galería)',
+        '12 motion flyers profesionales',
+        '12 diseños profesionales',
+        'Promoción en redes sociales',
+        'Asistente IA automático',
+        'Hasta 24 boosts de visibilidad',
+        'Soporte 24/7 prioritario',
+      ]
+    }
   ];
+
+  const getPrice = (plan: typeof plans[0]) => yearly ? plan.yearly : plan.monthly;
+  const getPeriod = (plan: typeof plans[0]) => {
+    if (!yearly) return '/ mes';
+    return plan.yearlyFixed ? '/ año (oferta)' : '/ año';
+  };
+  const getSavings = (plan: typeof plans[0]) =>
+    plan.yearlyFixed ? plan.monthly * 12 - plan.yearly : plan.monthly * 2;
 
   return (
     <div className="py-20 px-6 md:px-12 bg-slate-50 min-h-screen">
-      <div className="text-center space-y-4 mb-20">
+
+      {/* Header */}
+      <div className="text-center space-y-4 mb-8">
         <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-blue-600">PRECIOS</h2>
         <h3 className="text-4xl md:text-5xl font-black text-[#0a2540] uppercase tracking-tighter leading-none">Planes de Membresía</h3>
+        <p className="text-slate-500 text-sm font-medium">Más clientes · Más visibilidad · Más ventas</p>
       </div>
+
+      {/* Toggle Mensual / Anual */}
+      <div className="flex justify-center mb-12">
+        <div className="flex items-center gap-4 bg-white shadow-md border border-slate-100 p-2.5 rounded-2xl">
+          <span className={`text-[11px] font-black uppercase tracking-widest px-1 ${!yearly ? 'text-[#0a2540]' : 'text-slate-400'}`}>Mensual</span>
+          <button
+            onClick={() => setYearly(!yearly)}
+            className={`w-14 h-7 rounded-full relative transition-colors duration-300 ${yearly ? 'bg-[#0a2540]' : 'bg-slate-300'}`}
+          >
+            <span className={`absolute top-0.5 bg-white w-6 h-6 rounded-full shadow-sm transition-all duration-300 ${yearly ? 'left-7' : 'left-0.5'}`} />
+          </button>
+          <span className={`text-[11px] font-black uppercase tracking-widest px-1 ${yearly ? 'text-[#0a2540]' : 'text-slate-400'}`}>Anual</span>
+          {yearly && (
+            <span className="text-[9px] font-black uppercase tracking-widest bg-green-100 text-green-700 px-3 py-1.5 rounded-xl border border-green-200">
+              ¡Hasta 2 meses GRATIS!
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto items-stretch">
         {plans.map((plan) => (
           <div key={plan.name} className={`relative flex flex-col p-10 rounded-[3rem] transition-all duration-500 border ${plan.variant === 'highlight' ? 'bg-blue-600 text-white border-blue-600 shadow-2xl scale-105 z-10' : 'bg-white text-[#0a2540] border-slate-100 shadow-xl hover:shadow-2xl'}`}>
-            {plan.recommended && <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-yellow-400 text-[#0a2540] px-5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">RECOMENDADO</div>}
+
+            {/* Badge superior */}
+            {plan.badge && (
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
+                <span className={`inline-flex items-center gap-1.5 px-5 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg whitespace-nowrap ${plan.variant === 'highlight' ? 'bg-yellow-400 text-[#0a2540]' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
+                  <Icon name={plan.variant === 'highlight' ? 'Star' : 'Rocket'} className="w-3.5 h-3.5" />
+                  {plan.badge}
+                </span>
+              </div>
+            )}
+
+            {/* Badge de ahorro — solo cuando está activo el modo anual */}
+            {yearly && (
+              <div className="absolute top-5 right-5 z-10">
+                <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-xl ${plan.variant === 'highlight' ? 'bg-white/15 text-green-300 border border-white/20' : 'bg-green-50 text-green-700 border border-green-200'}`}>
+                  Ahorras L.{getSavings(plan)}
+                </span>
+              </div>
+            )}
+
+            {/* Icono + Nombre + Descripción + Precio */}
             <div className="flex flex-col items-center text-center mb-10">
-              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-6 ${plan.variant === 'highlight' ? 'bg-white/20' : 'bg-blue-50'}`}><Icon name={plan.icon} className={`w-8 h-8 ${plan.variant === 'highlight' ? 'text-white' : 'text-blue-600'}`} /></div>
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-6 ${plan.variant === 'highlight' ? 'bg-white/20' : 'bg-blue-50'}`}>
+                <Icon name={plan.icon} className={`w-8 h-8 ${plan.variant === 'highlight' ? 'text-white' : 'text-blue-600'}`} />
+              </div>
               <h4 className="text-2xl font-black uppercase tracking-tight mb-3">{plan.name}</h4>
               <p className={`text-xs font-medium px-4 opacity-80 ${plan.variant === 'highlight' ? 'text-blue-100' : 'text-slate-500'}`}>{plan.description}</p>
-              <div className="mt-6 flex items-baseline gap-1"><span className="text-3xl font-black">{plan.price}</span><span className="text-[10px] font-black uppercase tracking-widest opacity-60">{plan.period}</span></div>
+              <div className="mt-6 flex items-baseline gap-1">
+                <span className="text-3xl font-black">L.{getPrice(plan)}</span>
+                <span className="text-[10px] font-black uppercase tracking-widest opacity-60">{getPeriod(plan)}</span>
+              </div>
             </div>
+
+            {/* Features */}
             <ul className="space-y-5 mb-12 flex-grow">
               {plan.features.map((feature, i) => (
-                <li key={i} className="flex items-center gap-4 text-sm font-bold"><div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2 ${plan.variant === 'highlight' ? 'border-white/30 text-white' : 'border-blue-100 text-blue-600'}`}><Icon name="CheckCircle2" className="w-3.5 h-3.5" /></div><span className={plan.variant === 'highlight' ? 'text-white' : 'text-slate-700'}>{feature}</span></li>
+                <li key={i} className="flex items-center gap-4 text-sm font-bold">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2 ${plan.variant === 'highlight' ? 'border-white/30 text-white' : 'border-blue-100 text-blue-600'}`}>
+                    <Icon name="CheckCircle2" className="w-3.5 h-3.5" />
+                  </div>
+                  <span className={plan.variant === 'highlight' ? 'text-white' : 'text-slate-700'}>{feature}</span>
+                </li>
               ))}
             </ul>
-            <Link to={`/register?plan=${plan.tierSlug}`} className={`w-full py-5 rounded-2xl font-black uppercase text-xs text-center tracking-[0.2em] shadow-xl transition-all active:scale-95 ${plan.variant === 'highlight' ? 'bg-white text-blue-600 hover:bg-slate-50' : 'bg-[#0a2540] text-white hover:bg-[#0f345c]'}`}>{plan.buttonText}</Link>
+
+            {/* CTA */}
+            <Link to={`/register?plan=${plan.tierSlug}`} className={`w-full py-5 rounded-2xl font-black uppercase text-xs text-center tracking-[0.2em] shadow-xl transition-all active:scale-95 ${plan.variant === 'highlight' ? 'bg-white text-blue-600 hover:bg-slate-50' : 'bg-[#0a2540] text-white hover:bg-[#0f345c]'}`}>ELEGIR</Link>
           </div>
         ))}
       </div>
+
+      {/* Footer */}
+      <p className="text-center text-[11px] text-slate-400 font-bold mt-10 tracking-wide">
+        Sin contratos · Cancelas cuando quieras · Activación inmediata
+      </p>
+
+      {/* ===== CATEGORÍAS ===== */}
+      <div className="mt-24 max-w-7xl mx-auto">
+        <div className="text-center space-y-3 mb-12">
+          <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-blue-600">EXPLORAR</h2>
+          <h3 className="text-3xl md:text-4xl font-black text-[#0a2540] uppercase tracking-tighter leading-none">20 Categorías de negocios</h3>
+          <p className="text-slate-500 text-sm font-medium max-w-lg mx-auto">Desde agricultura hasta tecnología — tu negocio tiene un lugar en Negocios-HN.</p>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          {CATEGORIES.map((cat) => (
+            <Link
+              key={cat.id}
+              to={`/explorer?category=${cat.id}`}
+              className="group flex flex-col items-center gap-3 p-5 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-xl hover:border-[#0a2540] hover:-translate-y-1 transition-all duration-300"
+            >
+              <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 group-hover:bg-[#0a2540] flex items-center justify-center transition-all">
+                <Icon name={cat.icon} className="w-6 h-6 text-blue-600 group-hover:text-yellow-400 transition-colors" />
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 group-hover:text-[#0a2540] text-center leading-snug transition-colors">{cat.name}</span>
+              <span className="text-[9px] font-bold text-slate-400">{cat.subCategories.length} subcategorías</span>
+            </Link>
+          ))}
+        </div>
+      </div>
+
     </div>
   );
 };
@@ -1155,7 +1484,7 @@ const RegisterView = () => {
   const [searchParams] = useSearchParams();
   const planParam = searchParams.get('plan');
   
-  const [tier, setTier] = useState<MembershipTier>(MembershipTier.PRO);
+  const [tier, setTier] = useState<MembershipTier>(MembershipTier.DOMINA);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [hasConfirmedExplicitly, setHasConfirmedExplicitly] = useState(false);
@@ -1184,9 +1513,9 @@ const RegisterView = () => {
 
   useEffect(() => {
     if (planParam) {
-      if (planParam === 'lite') setTier(MembershipTier.LITE);
-      else if (planParam === 'plus') setTier(MembershipTier.PLUS);
-      else if (planParam === 'pro') setTier(MembershipTier.PRO);
+      if (planParam === 'inicia') setTier(MembershipTier.INICIA);
+      else if (planParam === 'impulsa') setTier(MembershipTier.IMPULSA);
+      else if (planParam === 'domina') setTier(MembershipTier.DOMINA);
     }
   }, [planParam]);
 
@@ -1196,9 +1525,9 @@ const RegisterView = () => {
 
   const getMaxGallerySlots = () => {
     switch (tier) {
-      case MembershipTier.LITE: return 3;
-      case MembershipTier.PLUS: return 7;
-      case MembershipTier.PRO: return 14;
+      case MembershipTier.INICIA: return 3;
+      case MembershipTier.IMPULSA: return 7;
+      case MembershipTier.DOMINA: return 14;
       default: return 3;
     }
   };
@@ -1348,7 +1677,7 @@ const RegisterView = () => {
         <section className="bg-white rounded-[2.5rem] shadow-xl p-8 md:p-10 border border-slate-100 space-y-8">
           <div className="flex items-center gap-3"><div className="w-1.5 h-6 bg-yellow-400 rounded-full" /><h3 className="text-sm font-black text-[#001f3f] uppercase tracking-widest">Seleccione su Plan</h3></div>
           <div className="flex bg-slate-50 p-2 rounded-2xl gap-2">
-            {[MembershipTier.LITE, MembershipTier.PLUS, MembershipTier.PRO].map(t => (
+            {[MembershipTier.INICIA, MembershipTier.IMPULSA, MembershipTier.DOMINA].map(t => (
               <button key={t} type="button" onClick={() => setTier(t)} className={`flex-1 py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${tier === t ? 'bg-[#001f3f] text-yellow-400 shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>{t}</button>
             ))}
           </div>
@@ -1443,9 +1772,9 @@ const RegisterView = () => {
           </div>
         </section>
 
-        {tier === MembershipTier.PRO && (
+        {tier === MembershipTier.DOMINA && (
           <section className="bg-white rounded-[2.5rem] shadow-xl p-8 md:p-10 border border-slate-100 space-y-8 animate-in slide-in-from-top-4">
-            <div className="flex items-center gap-3"><div className="w-1.5 h-6 bg-blue-600 rounded-full" /><h3 className="text-sm font-black text-[#001f3f] uppercase tracking-widest">ECOSISTEMA DIGITAL (PRO)</h3></div>
+            <div className="flex items-center gap-3"><div className="w-1.5 h-6 bg-blue-600 rounded-full" /><h3 className="text-sm font-black text-[#001f3f] uppercase tracking-widest">ECOSISTEMA DIGITAL (DOMINA)</h3></div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 flex items-center gap-2"><Icon name="Facebook" className="w-3 h-3" />FACEBOOK</label><input type="text" name="facebook" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-5 outline-none font-bold text-sm" value={formData.facebook} onChange={handleInputChange} /></div>
               <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 flex items-center gap-2"><Icon name="Instagram" className="w-3 h-3" />INSTAGRAM</label><input type="text" name="instagram" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-5 outline-none font-bold text-sm" value={formData.instagram} onChange={handleInputChange} /></div>
@@ -1813,7 +2142,7 @@ const AdminView = () => {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">
-                    Galería ({(editingBusiness.gallery || []).length}/{(() => { const t = editingBusiness.tier; return t === 'pro' ? 14 : t === 'plus' ? 7 : 3; })()})
+                    Galería ({(editingBusiness.gallery || []).length}/{(() => { const t = editingBusiness.tier; return t === 'domina' ? 14 : t === 'impulsa' ? 7 : 3; })()})
                   </label>
                   <span className="text-[9px] font-bold text-slate-400 uppercase bg-slate-100 px-3 py-1 rounded-lg">
                     Plan {(editingBusiness.tier || 'lite').toUpperCase()}
@@ -1854,7 +2183,7 @@ const AdminView = () => {
                     </div>
                   ))}
                   {/* Slot para agregar nueva imagen */}
-                  {(editingBusiness.gallery || []).length < (() => { const t = editingBusiness.tier; return t === 'pro' ? 14 : t === 'plus' ? 7 : 3; })() && (
+                  {(editingBusiness.gallery || []).length < (() => { const t = editingBusiness.tier; return t === 'domina' ? 14 : t === 'impulsa' ? 7 : 3; })() && (
                     <label className="relative aspect-square rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer bg-slate-50 hover:bg-blue-50 hover:border-blue-300 transition-all group">
                       <Icon name="PlusCircle" className="text-slate-300 group-hover:text-blue-500 w-5 h-5" />
                       <span className="text-[8px] font-black uppercase text-slate-400 mt-1 group-hover:text-blue-500">Agregar</span>

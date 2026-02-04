@@ -5,9 +5,9 @@ export enum BusinessStatus {
 }
 
 export enum MembershipTier {
-  LITE = 'lite',
-  PLUS = 'plus',
-  PRO = 'pro'
+  INICIA = 'inicia',
+  IMPULSA = 'impulsa',
+  DOMINA = 'domina'
 }
 
 export interface SubCategory {

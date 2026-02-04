@@ -3,7 +3,6 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
-  // PEGA AQUÍ TUS LLAVES REALES (Las que sacaste de la consola de Firebase)
   apiKey: "AIzaSyC8LbmccL8Yaq55VJoDVjdnn1aIlghmfT0",
   authDomain: "negocios-hn-2c8ab.firebaseapp.com",
   projectId: "negocios-hn-2c8ab",
@@ -14,5 +13,6 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+
 export const db = getFirestore(app);
 export const storage = getStorage(app);

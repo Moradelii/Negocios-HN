@@ -324,6 +324,7 @@ export const CATEGORIES: Category[] = [
 	  { id: 'diseño-grafico', name: 'Diseño gráfico / Logos / banners' },
       { id: 'impresion-rotulacion', name: 'Impresión y rotulación' },
       { id: 'edicion-video', name: 'Edición de video' },
+      { id: 'comunicacion', name: 'Radio / Televisión / Lives / Redes Sociales' },	  
       { id: 'motion-graphics', name: 'Motion graphics / Motion flyers' }
     ] 
   },

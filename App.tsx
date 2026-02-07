@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import './index.css';
+// import './index.css';
 import { HashRouter, Routes, Route, Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { CATEGORIES, Business, BusinessStatus, MembershipTier } from './types';
@@ -1604,7 +1604,9 @@ const RegisterView = () => {
     if (!formData.businessName) return alert("Ingrese el nombre del negocio primero.");
     setIsGenerating(true);
     const catName = CATEGORIES.find(c => c.id === formData.category)?.name || 'Negocio';
-    const desc = await generateBusinessDescription(formData.businessName, catName);
+    const category = CATEGORIES.find(c => c.id === formData.category);
+    const subCatName = category?.subCategories.find(sc => sc.id === formData.subCategory)?.name || 'General';
+    const desc = await generateBusinessDescription(formData.businessName, catName, subCatName);
     setFormData(prev => ({ ...prev, description: desc }));
     setIsGenerating(false);
   };
@@ -2221,7 +2223,12 @@ const AdminView = () => {
 
 const App = () => {
   return (
-    <HashRouter>
+    <HashRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true
+      }}
+    >
       <Layout>
         <Routes>
           <Route path="/" element={<HomeView />} />

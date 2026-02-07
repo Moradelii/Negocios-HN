@@ -1,5 +1,6 @@
 
 import React from 'react';
+import './index.css'  // ← Esta línea DEBE estar
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 

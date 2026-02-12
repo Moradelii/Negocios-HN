@@ -126,7 +126,7 @@ export const CATEGORIES: Category[] = [
       { id: 'autopartes-repuestos', name: 'Autopartes y repuestos' },
       { id: 'llantas-baterias', name: 'Llantas y baterías' },
       { id: 'electricidad-automotriz', name: 'Electricidad automotriz' },
-      { id: 'lavado-planchado', name: 'Lavado y planchado' },
+      { id: 'lavado', name: 'Lavado' },
       { id: 'alquiler-vehiculos', name: 'Alquiler de vehículos' },
       { id: 'venta-autos', name: 'Venta de autos nuevos/usados' },
       { id: 'venta-motos-bicicletas', name: 'Venta de motos y bicicletas' },
@@ -234,6 +234,7 @@ export const CATEGORIES: Category[] = [
       { id: 'pisos-azulejos', name: 'Pisos y azulejos' },
       { id: 'iluminacion', name: 'Iluminación (lámparas, LED)' },
 	  { id: 'resina-epoxica', name: 'Resina epóxica (relojes, cuadros, decoración)' },
+      { id: 'lavado-planchado', name: 'Lavado y planchado' },	  
       { id: 'tufting-alfombras', name: 'Tufting / alfombras artesanales / MousePad' }
     ] 
   },
@@ -359,6 +360,7 @@ export const CATEGORIES: Category[] = [
       { id: 'alquiler-buses', name: 'Alquiler de buses' },
       { id: 'bodegas-almacenamiento', name: 'Bodegas y almacenamiento' },
       { id: 'courier-internacional', name: 'Courier internacional' },
+      { id: 'gasolineras-starmart', name: 'Gasolineras y starmart' },	  
       { id: 'casilleros-virtuales', name: 'Casilleros virtuales (Miami, USA)' }
     ] 
   },

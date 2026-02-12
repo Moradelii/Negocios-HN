@@ -360,7 +360,7 @@ export const CATEGORIES: Category[] = [
       { id: 'alquiler-buses', name: 'Alquiler de buses' },
       { id: 'bodegas-almacenamiento', name: 'Bodegas y almacenamiento' },
       { id: 'courier-internacional', name: 'Courier internacional' },
-      { id: 'gasolineras-starmart', name: 'Gasolineras y starmart' },	  
+      { id: 'gasolineras-starmart', name: 'Gasolineras y Starmart' },
       { id: 'casilleros-virtuales', name: 'Casilleros virtuales (Miami, USA)' }
     ] 
   },

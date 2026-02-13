@@ -1,49 +1,133 @@
+// services/geminiService.ts
+// Actualizado para usar Claude AI a través de proxy
 
-import { GoogleGenAI } from "@google/genai";
+export interface ClaudeMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ClaudeResponse {
+  content: Array<{
+    type: string;
+    text: string;
+  }>;
+  id: string;
+  model: string;
+  role: string;
+  stop_reason: string;
+}
 
 /**
- * Helper to get a safe instance of the AI client.
- * Uses process.env.API_KEY exclusively.
+ * Genera una descripción de negocio usando Claude AI
+ * @param businessName - Nombre del negocio
+ * @param category - Categoría del negocio
+ * @param subCategory - Subcategoría del negocio
+ * @returns Descripción generada o mensaje de error
  */
-const getAiClient = () => {
-  if (!process.env.API_KEY) {
-    throw new Error("API Key no configurada.");
+export const generateBusinessDescription = async (
+  businessName: string,
+  category: string,
+  subCategory: string
+): Promise<string> => {
+  try {
+    const prompt = `Genera una descripción profesional y atractiva para un negocio hondureño con los siguientes datos:
+- Nombre: ${businessName}
+- Categoría: ${category}
+- Subcategoría: ${subCategory}
+
+La descripción debe:
+1. Tener entre 100-150 palabras
+2. Ser profesional pero amigable
+3. Destacar los beneficios para el cliente
+4. Usar lenguaje apropiado para el mercado hondureño
+5. No usar emojis ni símbolos especiales
+6. Enfocarse en la calidad del servicio/producto
+
+Genera SOLO la descripción, sin títulos ni introducciones adicionales.`;
+
+    // Llamar al proxy de Vercel en lugar de directamente a Anthropic
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Error from proxy:', errorData);
+      throw new Error(errorData.error || 'Error generando descripción');
+    }
+
+    const data: ClaudeResponse = await response.json();
+    
+    // Extraer el texto de la respuesta
+    const generatedText = data.content
+      .filter(item => item.type === 'text')
+      .map(item => item.text)
+      .join('\n')
+      .trim();
+
+    if (!generatedText) {
+      throw new Error('No se pudo generar la descripción');
+    }
+
+    return generatedText;
+
+  } catch (error) {
+    console.error('Error en generateBusinessDescription:', error);
+    
+    // Retornar descripción por defecto en caso de error
+    return `${businessName} es un establecimiento dedicado a ${subCategory} en Honduras. Ofrecemos servicios de calidad para satisfacer las necesidades de nuestros clientes. Contamos con experiencia en el sector de ${category} y nos comprometemos a brindar la mejor atención.`;
   }
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
 /**
- * Genera una descripción profesional utilizando el modelo básico.
+ * Función genérica para llamar a Claude AI
+ * @param messages - Array de mensajes para la conversación
+ * @returns Respuesta de Claude
  */
-export const generateBusinessDescription = async (name: string, category: string): Promise<string> => {
+export const callClaude = async (
+  messages: ClaudeMessage[]
+): Promise<string> => {
   try {
-    const ai = getAiClient();
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Escribe una descripción profesional y atractiva de máximo 150 caracteres para un negocio llamado "${name}" que pertenece a la categoría de "${category}" en Honduras. Usa un tono confiable.`
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messages,
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000
+      })
     });
-    return response.text?.trim() || "Un negocio comprometido con la excelencia.";
-  } catch (error) {
-    console.error("Gemini API Error:", error);
-    return "Servicio local dedicado a brindar la mejor atención.";
-  }
-};
 
-/**
- * Asistente para recomendar negocios basado en búsquedas.
- * Se utiliza el modelo básico Flash para mantener la funcionalidad gratuita/estándar.
- */
-export const searchAssistant = async (query: string, businesses: any[]): Promise<string> => {
-  try {
-    const ai = getAiClient();
-    const businessNames = businesses.map(b => `${b.name} (${b.category})`).join(', ');
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `El usuario busca: "${query}". Basado en estos negocios: [${businessNames}], recomienda brevemente cuáles podrían interesarle. Responde de forma amable y corta.`
-    });
-    return response.text?.trim() || "No pudimos procesar tu búsqueda detallada.";
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Error en la llamada a Claude');
+    }
+
+    const data: ClaudeResponse = await response.json();
+    
+    return data.content
+      .filter(item => item.type === 'text')
+      .map(item => item.text)
+      .join('\n')
+      .trim();
+
   } catch (error) {
-    console.error("Gemini Search Assistant Error:", error);
-    return "Error al conectar con el asistente.";
+    console.error('Error calling Claude:', error);
+    throw error;
   }
 };

@@ -84,7 +84,7 @@ const mapFirestoreToBusiness = (doc: any): Business => {
     hours: data.hours || '08:00 AM - 05:00 PM',
     lat: data.lat || 14.936958286959436,
     lng: data.lng || -86.5828171827915,
-    tier: data.tier || MembershipTier.INICIA,
+    tier: data.tier || MembershipTier.PLUS,
     facebook: data.facebook || '',
     instagram: data.instagram || '',
     tiktok: data.tiktok || '',
@@ -648,14 +648,9 @@ const BusinessDetailView = () => {
     }
   };
 
-  // Límite de galería según tier
+  // 🔥 Plan Plus siempre tiene 14 fotos de galería
   const getOwnerMaxGallery = () => {
-    switch (biz?.tier) {
-      case MembershipTier.INICIA: return 4;   // 5 total - 1 portada
-      case MembershipTier.IMPULSA: return 14;   // 15 total - 1 portada
-      case MembershipTier.DOMINA: return 44;   // 45 total - 1 portada
-      default: return 3;
-    }
+    return 14;
   };
 
   const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1282,179 +1277,253 @@ const MarkerLayer = ({
   );
 };
 
-// --- MembershipView (Completo) ---
+// --- MembershipView - UN SOLO PLAN PLUS ---
 const MembershipView = () => {
-  const [yearly, setYearly] = useState(false);
-
-  const plans = [
-    {
-      name: 'PLAN INICIA',
-      tierSlug: 'lite',
-      icon: 'Rocket',
-      badge: 'OFERTA LANZAMIENTO',
-      description: 'El primer paso para digitalizar tu negocio',
-      monthly: 375,
-      yearly: 150,
-      yearlyFixed: true,
-      variant: 'default' as const,
-      features: [
-        'Perfil verificado',
-        'Botón WhatsApp y llamadas',
-        '4 Fotos (1 Portada + 3 Galería)',
-        'Ubicación en mapa interactivo',
-        '1 promoción mensual',
-        '1 boost de visibilidad',
-        'Estadísticas básicas',
-      ]
-    },
-    {
-      name: 'PLAN IMPULSA',
-      tierSlug: 'plus',
-      icon: 'Trophy',
-      badge: 'EL MÁS POPULAR',
-      description: 'Ideal para convertir visitas en clientes',
-      monthly: 600,
-      yearly: 600 * 10,
-      yearlyFixed: false,
-      variant: 'highlight' as const,
-      features: [
-        'Todo lo del Plan Inicia',
-        'Posición prioritaria en búsquedas',
-        '8 Fotos (1 Portada + 7 Galería)',
-        'WhatsApp destacado',
-        'Publicaciones ilimitadas',
-        '3 boosts de visibilidad',
-        'Estadísticas avanzadas',
-        '1 diseño profesional',
-      ]
-    },
-    {
-      name: 'PLAN DOMINA',
-      tierSlug: 'pro',
-      icon: 'ShieldCheck',
-      badge: 'MÁXIMA EXPOSICIÓN',
-      description: 'Para quienes quieren dominar su categoría',
-      monthly: 850,
-      yearly: 850 * 10,
-      yearlyFixed: false,
-      variant: 'default' as const,
-      features: [
-        'Todo lo del Plan Impulsa',
-        'Primeros lugares garantizados',
-        'Tu negocio en Destacados (VIP)',
-        '15 Fotos (1 Portada + 14 Galería)',
-        '12 motion flyers profesionales',
-        '12 diseños profesionales',
-        'Promoción en redes sociales',
-        'Asistente IA automático',
-        'Hasta 24 boosts de visibilidad',
-        'Soporte 24/7 prioritario',
-      ]
-    }
-  ];
-
-  const getPrice = (plan: typeof plans[0]) => yearly ? plan.yearly : plan.monthly;
-  const getPeriod = (plan: typeof plans[0]) => {
-    if (!yearly) return '/ mes';
-    return plan.yearlyFixed ? '/ año (oferta)' : '/ año';
-  };
-  const getSavings = (plan: typeof plans[0]) =>
-    plan.yearlyFixed ? plan.monthly * 12 - plan.yearly : plan.monthly * 2;
-
   return (
     <div className="py-20 px-6 md:px-12 bg-slate-50 min-h-screen">
 
       {/* Header */}
-      <div className="text-center space-y-4 mb-8">
-        <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-blue-600">PRECIOS</h2>
-        <h3 className="text-4xl md:text-5xl font-black text-[#0a2540] uppercase tracking-tighter leading-none">Planes de Membresía</h3>
-        <p className="text-slate-500 text-sm font-medium">Más clientes · Más visibilidad · Más ventas</p>
+      <div className="text-center space-y-4 mb-12">
+        <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-blue-600">PLAN DE LANZAMIENTO</h2>
+        <h3 className="text-4xl md:text-5xl font-black text-[#0a2540] uppercase tracking-tighter leading-none">Plan Plus</h3>
+        <p className="text-slate-500 text-sm font-medium">La mejor inversión para tu negocio · Todo lo que necesitas en un solo plan</p>
       </div>
 
-      {/* Toggle Mensual / Anual */}
-      <div className="flex justify-center mb-12">
-        <div className="flex items-center gap-4 bg-white shadow-md border border-slate-100 p-2.5 rounded-2xl">
-          <span className={`text-[11px] font-black uppercase tracking-widest px-1 ${!yearly ? 'text-[#0a2540]' : 'text-slate-400'}`}>Mensual</span>
-          <button
-            onClick={() => setYearly(!yearly)}
-            className={`w-14 h-7 rounded-full relative transition-colors duration-300 ${yearly ? 'bg-[#0a2540]' : 'bg-slate-300'}`}
-          >
-            <span className={`absolute top-0.5 bg-white w-6 h-6 rounded-full shadow-sm transition-all duration-300 ${yearly ? 'left-7' : 'left-0.5'}`} />
-          </button>
-          <span className={`text-[11px] font-black uppercase tracking-widest px-1 ${yearly ? 'text-[#0a2540]' : 'text-slate-400'}`}>Anual</span>
-          {yearly && (
-            <span className="text-[9px] font-black uppercase tracking-widest bg-green-100 text-green-700 px-3 py-1.5 rounded-xl border border-green-200">
-              ¡Hasta 2 meses GRATIS!
+      {/* PLAN PLUS - CARD ÚNICA CENTRADA */}
+      <div className="max-w-2xl mx-auto mb-16">
+        <div className="relative flex flex-col p-12 rounded-[3rem] bg-gradient-to-br from-blue-600 to-blue-800 text-white border border-blue-500 shadow-2xl">
+          
+          {/* Badge superior */}
+          <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
+            <span className="inline-flex items-center gap-1.5 px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl bg-yellow-400 text-[#0a2540]">
+              <Icon name="Star" className="w-4 h-4" />
+              OFERTA DE LANZAMIENTO
             </span>
-          )}
+          </div>
+
+          {/* Icono + Nombre + Descripción + Precio */}
+          <div className="flex flex-col items-center text-center mb-12">
+            <div className="w-20 h-20 rounded-3xl flex items-center justify-center mb-8 bg-white/20 backdrop-blur-sm">
+              <Icon name="Trophy" className="w-10 h-10 text-white" />
+            </div>
+            <h4 className="text-3xl font-black uppercase tracking-tight mb-4">PLAN PLUS</h4>
+            <p className="text-base font-medium px-6 opacity-90 text-blue-100 mb-8">
+              Todo lo que tu negocio necesita para destacar en Negocios-HN
+            </p>
+            
+            {/* PRECIO DESTACADO */}
+            <div className="bg-white/15 backdrop-blur-md rounded-3xl px-10 py-8 border border-white/20 shadow-xl">
+              <div className="flex items-baseline justify-center gap-2">
+                <span className="text-5xl font-black">L.75</span>
+                <div className="flex flex-col items-start">
+                  <span className="text-sm font-black uppercase tracking-widest opacity-80">/ mes</span>
+                  <span className="text-xs font-bold opacity-60">Sin contratos</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Features en 2 columnas */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2 border-white/30 mt-0.5">
+                  <Icon name="CheckCircle2" className="w-3.5 h-3.5 text-white" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-white block">Perfil verificado</span>
+                  <span className="text-xs text-blue-100 opacity-80">Badge oficial de verificación</span>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2 border-white/30 mt-0.5">
+                  <Icon name="CheckCircle2" className="w-3.5 h-3.5 text-white" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-white block">Teléfono / WhatsApp</span>
+                  <span className="text-xs text-blue-100 opacity-80">Contacto directo con clientes</span>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2 border-white/30 mt-0.5">
+                  <Icon name="CheckCircle2" className="w-3.5 h-3.5 text-white" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-white block">Correo Electrónico</span>
+                  <span className="text-xs text-blue-100 opacity-80">Consultas por email</span>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2 border-white/30 mt-0.5">
+                  <Icon name="CheckCircle2" className="w-3.5 h-3.5 text-white" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-white block">Ubicación en mapa interactivo</span>
+                  <span className="text-xs text-blue-100 opacity-80">Clientes te encuentran fácilmente</span>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2 border-white/30 mt-0.5">
+                  <Icon name="CheckCircle2" className="w-3.5 h-3.5 text-white" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-white block">Horario de atención</span>
+                  <span className="text-xs text-blue-100 opacity-80">Informa cuándo estás abierto</span>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2 border-white/30 mt-0.5">
+                  <Icon name="CheckCircle2" className="w-3.5 h-3.5 text-white" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-white block">Reseñas de usuarios</span>
+                  <span className="text-xs text-blue-100 opacity-80">Genera confianza</span>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2 border-white/30 mt-0.5">
+                  <Icon name="CheckCircle2" className="w-3.5 h-3.5 text-white" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-white block">1 promoción mensual</span>
+                  <span className="text-xs text-blue-100 opacity-80">Destaca tus ofertas</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2 border-white/30 mt-0.5">
+                  <Icon name="CheckCircle2" className="w-3.5 h-3.5 text-white" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-white block">1 boost de visibilidad</span>
+                  <span className="text-xs text-blue-100 opacity-80">Aparece primero</span>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2 border-white/30 mt-0.5">
+                  <Icon name="CheckCircle2" className="w-3.5 h-3.5 text-white" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-white block">15 Fotos en galería</span>
+                  <span className="text-xs text-blue-100 opacity-80">1 portada + 14 galería</span>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2 border-white/30 mt-0.5">
+                  <Icon name="CheckCircle2" className="w-3.5 h-3.5 text-white" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-white block">Estadísticas</span>
+                  <span className="text-xs text-blue-100 opacity-80">Visitas, clics, interacciones</span>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2 border-white/30 mt-0.5">
+                  <Icon name="CheckCircle2" className="w-3.5 h-3.5 text-white" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-white block">Soporte prioritario</span>
+                  <span className="text-xs text-blue-100 opacity-80">Asistencia rápida</span>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2 border-white/30 mt-0.5">
+                  <Icon name="CheckCircle2" className="w-3.5 h-3.5 text-white" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-white block">Búsqueda por categoría</span>
+                  <span className="text-xs text-blue-100 opacity-80">Usuarios te encuentran fácil</span>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2 border-white/30 mt-0.5">
+                  <Icon name="CheckCircle2" className="w-3.5 h-3.5 text-white" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-white block">Palabras clave</span>
+                  <span className="text-xs text-blue-100 opacity-80">SEO optimizado</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* EXTRAS OPCIONALES */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 mb-8 border border-white/20">
+            <h5 className="text-sm font-black uppercase tracking-widest text-yellow-400 mb-4 flex items-center gap-2">
+              <Icon name="Sparkles" className="w-4 h-4" />
+              Extras Opcionales
+            </h5>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-white">Negocio en Destacados (VIP)</span>
+                <span className="text-sm font-black text-yellow-400">+L.25/mes</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-white">Promoción en redes sociales</span>
+                <span className="text-xs text-blue-100">Consultar</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-white">Hasta 12 boosts adicionales</span>
+                <span className="text-xs text-blue-100">Consultar</span>
+              </div>
+            </div>
+          </div>
+
+          {/* CTA */}
+          <Link 
+            to="/register" 
+            className="w-full py-6 rounded-2xl font-black uppercase text-base text-center tracking-[0.2em] shadow-2xl transition-all active:scale-95 bg-yellow-400 text-[#0a2540] hover:bg-yellow-300"
+          >
+            COMENZAR AHORA
+          </Link>
         </div>
       </div>
 
-      {/* Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto items-stretch">
-        {plans.map((plan) => (
-          <div key={plan.name} className={`relative flex flex-col p-10 rounded-[3rem] transition-all duration-500 border ${plan.variant === 'highlight' ? 'bg-blue-600 text-white border-blue-600 shadow-2xl scale-105 z-10' : 'bg-white text-[#0a2540] border-slate-100 shadow-xl hover:shadow-2xl'}`}>
-
-            {/* Badge superior */}
-            {plan.badge && (
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
-                <span className={`inline-flex items-center gap-1.5 px-5 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg whitespace-nowrap ${plan.variant === 'highlight' ? 'bg-yellow-400 text-[#0a2540]' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
-                  <Icon name={plan.variant === 'highlight' ? 'Star' : 'Rocket'} className="w-3.5 h-3.5" />
-                  {plan.badge}
-                </span>
-              </div>
-            )}
-
-            {/* Badge de ahorro — solo cuando está activo el modo anual */}
-            {yearly && (
-              <div className="absolute top-5 right-5 z-10">
-                <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-xl ${plan.variant === 'highlight' ? 'bg-white/15 text-green-300 border border-white/20' : 'bg-green-50 text-green-700 border border-green-200'}`}>
-                  Ahorras L.{getSavings(plan)}
-                </span>
-              </div>
-            )}
-
-            {/* Icono + Nombre + Descripción + Precio */}
-            <div className="flex flex-col items-center text-center mb-10">
-              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-6 ${plan.variant === 'highlight' ? 'bg-white/20' : 'bg-blue-50'}`}>
-                <Icon name={plan.icon} className={`w-8 h-8 ${plan.variant === 'highlight' ? 'text-white' : 'text-blue-600'}`} />
-              </div>
-              <h4 className="text-2xl font-black uppercase tracking-tight mb-3">{plan.name}</h4>
-              <p className={`text-xs font-medium px-4 opacity-80 ${plan.variant === 'highlight' ? 'text-blue-100' : 'text-slate-500'}`}>{plan.description}</p>
-              <div className="mt-6 flex items-baseline gap-1">
-                <span className="text-3xl font-black">L.{getPrice(plan)}</span>
-                <span className="text-[10px] font-black uppercase tracking-widest opacity-60">{getPeriod(plan)}</span>
-              </div>
-            </div>
-
-            {/* Features */}
-            <ul className="space-y-5 mb-12 flex-grow">
-              {plan.features.map((feature, i) => (
-                <li key={i} className="flex items-center gap-4 text-sm font-bold">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2 ${plan.variant === 'highlight' ? 'border-white/30 text-white' : 'border-blue-100 text-blue-600'}`}>
-                    <Icon name="CheckCircle2" className="w-3.5 h-3.5" />
-                  </div>
-                  <span className={plan.variant === 'highlight' ? 'text-white' : 'text-slate-700'}>{feature}</span>
-                </li>
-              ))}
-            </ul>
-
-            {/* CTA */}
-            <Link to={`/register?plan=${plan.tierSlug}`} className={`w-full py-5 rounded-2xl font-black uppercase text-xs text-center tracking-[0.2em] shadow-xl transition-all active:scale-95 ${plan.variant === 'highlight' ? 'bg-white text-blue-600 hover:bg-slate-50' : 'bg-[#0a2540] text-white hover:bg-[#0f345c]'}`}>ELEGIR</Link>
+      {/* Garantías y beneficios */}
+      <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+        <div className="bg-white rounded-2xl p-6 shadow-md border border-slate-100 text-center">
+          <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+            <Icon name="ShieldCheck" className="w-6 h-6 text-green-600" />
           </div>
-        ))}
+          <h4 className="text-xs font-black uppercase tracking-widest text-[#0a2540] mb-2">Sin contratos</h4>
+          <p className="text-xs text-slate-500 font-medium">Cancela cuando quieras sin penalizaciones</p>
+        </div>
+        
+        <div className="bg-white rounded-2xl p-6 shadow-md border border-slate-100 text-center">
+          <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
+            <Icon name="Rocket" className="w-6 h-6 text-blue-600" />
+          </div>
+          <h4 className="text-xs font-black uppercase tracking-widest text-[#0a2540] mb-2">Activación inmediata</h4>
+          <p className="text-xs text-slate-500 font-medium">Tu negocio visible en minutos</p>
+        </div>
+        
+        <div className="bg-white rounded-2xl p-6 shadow-md border border-slate-100 text-center">
+          <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center mx-auto mb-4">
+            <Icon name="HeartPulse" className="w-6 h-6 text-yellow-600" />
+          </div>
+          <h4 className="text-xs font-black uppercase tracking-widest text-[#0a2540] mb-2">Soporte 24/7</h4>
+          <p className="text-xs text-slate-500 font-medium">Estamos aquí para ayudarte siempre</p>
+        </div>
       </div>
-
-      {/* Footer */}
-      <p className="text-center text-[11px] text-slate-400 font-bold mt-10 tracking-wide">
-        Sin contratos · Cancelas cuando quieras · Activación inmediata
-      </p>
 
       {/* ===== CATEGORÍAS ===== */}
       <div className="mt-24 max-w-7xl mx-auto">
         <div className="text-center space-y-3 mb-12">
           <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-blue-600">EXPLORAR</h2>
-          <h3 className="text-3xl md:text-4xl font-black text-[#0a2540] uppercase tracking-tighter leading-none">20 Categorías de negocios</h3>
+          <h3 className="text-3xl md:text-4xl font-black text-[#0a2540] uppercase tracking-tighter leading-none">Categorías de negocios</h3>
           <p className="text-slate-500 text-sm font-medium max-w-lg mx-auto">Desde agricultura hasta tecnología — tu negocio tiene un lugar en Negocios-HN.</p>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -1478,18 +1547,23 @@ const MembershipView = () => {
   );
 };
 
-// --- Register View Corregido con Storage ---
+
+// --- Register View ACTUALIZADO con Plan Plus único + Mapa de ubicación ---
 const RegisterView = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const planParam = searchParams.get('plan');
   
-  const [tier, setTier] = useState<MembershipTier>(MembershipTier.DOMINA);
+  // 🔥 PLAN ÚNICO: Siempre Plan Plus
+  const tier = MembershipTier.PLUS;
+  
   const [isGenerating, setIsGenerating] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [hasConfirmedExplicitly, setHasConfirmedExplicitly] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  
+  // 🗺️ Estados para el mapa
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [markerPosition, setMarkerPosition] = useState<[number, number]>(HONDURAS_CENTER);
   
   const [formData, setFormData] = useState({
     ownerName: '',
@@ -1508,29 +1582,17 @@ const RegisterView = () => {
     tiktok: '',
     otherLink: '',
     image: '',
-    gallery: [] as string[]
+    gallery: [] as string[],
+    lat: HONDURAS_CENTER[0],
+    lng: HONDURAS_CENTER[1]
   });
-
-  useEffect(() => {
-    if (planParam) {
-      if (planParam === 'inicia') setTier(MembershipTier.INICIA);
-      else if (planParam === 'impulsa') setTier(MembershipTier.IMPULSA);
-      else if (planParam === 'domina') setTier(MembershipTier.DOMINA);
-    }
-  }, [planParam]);
 
   useEffect(() => {
     setFormData(prev => ({ ...prev, subCategory: '' }));
   }, [formData.category]);
 
-  const getMaxGallerySlots = () => {
-    switch (tier) {
-      case MembershipTier.INICIA: return 3;
-      case MembershipTier.IMPULSA: return 7;
-      case MembershipTier.DOMINA: return 14;
-      default: return 3;
-    }
-  };
+  // 🔥 Plan Plus siempre tiene 14 fotos de galería
+  const getMaxGallerySlots = () => 14;
 
   // --- Horario de atención ---
   const DAYS_ES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -1546,13 +1608,15 @@ const RegisterView = () => {
   const toggleDayOpen = (index: number) => {
     setSchedule(prev => prev.map((d, i) => i === index ? { ...d, open: !d.open } : d));
   };
+  
   const updateDayTime = (index: number, field: 'from' | 'to', value: string) => {
     setSchedule(prev => prev.map((d, i) => i === index ? { ...d, [field]: value } : d));
   };
+  
   const formatScheduleForStorage = (): string => {
     const openDays = schedule.filter(d => d.open);
     if (openDays.length === 0) return 'Cerrado';
-    // Agrupar días consecutivos con mismo horario
+    
     const groups: { days: string[], from: string, to: string }[] = [];
     openDays.forEach(d => {
       const last = groups[groups.length - 1];
@@ -1562,9 +1626,9 @@ const RegisterView = () => {
         groups.push({ days: [d.day], from: d.from, to: d.to });
       }
     });
+    
     return groups.map(g => {
       const dayStr = g.days.length === 1 ? g.days[0] : `${g.days[0]} - ${g.days[g.days.length - 1]}`;
-      // Formatear hora a 12h
       const fmt = (t: string) => {
         const [h, m] = t.split(':').map(Number);
         const ampm = h >= 12 ? 'PM' : 'AM';
@@ -1590,7 +1654,7 @@ const RegisterView = () => {
           if (formData.gallery.length < getMaxGallerySlots()) {
             setFormData(prev => ({...prev, gallery: [...prev.gallery, compressed]}));
           } else {
-            alert(`Límite de fotos para el plan ${tier.toUpperCase()} alcanzado.`);
+            alert(`Límite de fotos para el Plan Plus alcanzado (${getMaxGallerySlots()}).`);
           }
         } else {
           setFormData(prev => ({...prev, image: compressed}));
@@ -1611,15 +1675,167 @@ const RegisterView = () => {
     setIsGenerating(false);
   };
 
+  // 🗺️ Componente interno: Mapa con marcador arrastrable
+  const MapPickerComponent = () => {
+    const DraggableMarker = () => {
+      const map = useMap();
+      const markerRef = useRef<L.Marker>(null);
+
+      useEffect(() => {
+        map.flyTo(markerPosition, 13, { duration: 1 });
+      }, [map]);
+
+      const eventHandlers = {
+        dragend: () => {
+          const marker = markerRef.current;
+          if (marker) {
+            const pos = marker.getLatLng();
+            setMarkerPosition([pos.lat, pos.lng]);
+            setFormData(prev => ({ ...prev, lat: pos.lat, lng: pos.lng }));
+          }
+        }
+      };
+
+      return (
+        <Marker
+          position={markerPosition}
+          draggable={true}
+          eventHandlers={eventHandlers}
+          ref={markerRef}
+        >
+          <Popup>
+            <div className="text-center font-bold text-xs">
+              <p>Arrastra para ubicar tu negocio</p>
+              <p className="text-[10px] text-slate-500 mt-1">
+                {markerPosition[0].toFixed(5)}, {markerPosition[1].toFixed(5)}
+              </p>
+            </div>
+          </Popup>
+        </Marker>
+      );
+    };
+
+    return (
+      <div className="fixed inset-0 bg-[#0a2540]/90 backdrop-blur-md z-[3000] flex items-center justify-center p-4 animate-in fade-in">
+        <div className="bg-white w-full max-w-4xl h-[80vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col">
+          
+          {/* Header */}
+          <div className="p-6 border-b border-slate-200 flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-black text-[#0a2540] uppercase tracking-tight">Ubicar Negocio</h3>
+              <p className="text-xs text-slate-500 font-medium mt-1">Arrastra el marcador a la ubicación exacta</p>
+            </div>
+            <button
+              onClick={() => setShowMapPicker(false)}
+              className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <Icon name="X" className="w-6 h-6" />
+            </button>
+          </div>
+
+          {/* Mapa */}
+          <div className="flex-1 relative">
+            <MapContainer
+              center={markerPosition}
+              zoom={13}
+              style={{ height: '100%', width: '100%' }}
+              zoomControl={true}
+            >
+              <TileLayer
+                url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              />
+              <DraggableMarker />
+            </MapContainer>
+
+            {/* Instrucciones flotantes */}
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-white/95 backdrop-blur-sm px-4 py-2 rounded-xl shadow-lg border border-slate-200">
+              <p className="text-xs font-black text-[#0a2540] uppercase tracking-wider flex items-center gap-2">
+                <Icon name="Info" className="w-3.5 h-3.5 text-blue-600" />
+                Arrastra el marcador rojo
+              </p>
+            </div>
+
+            {/* Botón para obtener mi ubicación */}
+            <button
+              onClick={() => {
+                if (!navigator.geolocation) return alert('Geolocalización no soportada');
+                navigator.geolocation.getCurrentPosition(
+                  (pos) => {
+                    const newPos: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+                    setMarkerPosition(newPos);
+                    setFormData(prev => ({ ...prev, lat: pos.coords.latitude, lng: pos.coords.longitude }));
+                  },
+                  () => alert('No se pudo obtener tu ubicación')
+                );
+              }}
+              className="absolute bottom-4 right-4 z-[1000] p-4 bg-white rounded-2xl shadow-xl border border-slate-200 hover:scale-110 transition-transform"
+              title="Mi ubicación"
+            >
+              <Icon name="Navigation" className="w-6 h-6 text-blue-600" />
+            </button>
+          </div>
+
+          {/* Footer con coordenadas y botón confirmar */}
+          <div className="p-6 border-t border-slate-200 bg-slate-50">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Coordenadas</p>
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                  <span>Lat: {markerPosition[0].toFixed(6)}</span>
+                  <span className="text-slate-300">|</span>
+                  <span>Lng: {markerPosition[1].toFixed(6)}</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowMapPicker(false)}
+                className="px-8 py-4 bg-[#0a2540] text-yellow-400 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all"
+              >
+                Confirmar Ubicación
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // 🔥 VALIDACIÓN: Todos los campos obligatorios excepto imágenes
+  const validateForm = (): boolean => {
+    const newErrors: string[] = [];
+    
+    if (!formData.ownerName.trim()) newErrors.push('ownerName');
+    if (!formData.dni.trim()) newErrors.push('dni');
+    if (!formData.email.trim()) newErrors.push('email');
+    if (!formData.phone.trim()) newErrors.push('phone');
+    if (!formData.businessName.trim()) newErrors.push('businessName');
+    if (!formData.ownerPassword.trim()) newErrors.push('ownerPassword');
+    if (!formData.subCategory) newErrors.push('subCategory');
+    if (!formData.description.trim()) newErrors.push('description');
+    if (!formData.address.trim()) newErrors.push('address');
+    if (!formData.whatsapp.trim()) newErrors.push('whatsapp');
+    
+    setErrors(newErrors);
+    
+    if (newErrors.length > 0) {
+      alert('Por favor complete todos los campos obligatorios marcados con *');
+      return false;
+    }
+    
+    return true;
+  };
+
   const handleSubmitAttempt = (e: React.FormEvent) => {
     e.preventDefault();
-    setShowConfirmModal(true);
+    if (validateForm()) {
+      setShowConfirmModal(true);
+    }
   };
 
   const handleFinalSubmit = async () => {
     setIsSaving(true);
     try {
-      // Subir imagen principal a Storage
+      // Subir imagen principal a Cloudinary
       let mainImageUrl = formData.image;
       if (formData.image) {
         mainImageUrl = await uploadImageToCloudinary(formData.image, `businesses/${Date.now()}_main`);
@@ -1636,6 +1852,7 @@ const RegisterView = () => {
       await addDoc(negociosRef, {
         name: formData.businessName,
         owner: formData.ownerName,
+        dni: formData.dni,
         email: formData.email,
         phone: formData.phone,
         whatsapp: formData.whatsapp,
@@ -1647,11 +1864,17 @@ const RegisterView = () => {
         createdAt: new Date().toISOString(),
         rating: 5.0,
         image: mainImageUrl || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=800',
-        ownerPassword: formData.ownerPassword,
+        ownerPassword: formData.ownerPassword, // TODO: Hashear en producción
         VIP: false,
         gallery: galleryUrls,
         hours: formatScheduleForStorage(),
-        tier: tier
+        tier: MembershipTier.PLUS, // 🔥 Siempre Plan Plus
+        lat: formData.lat,
+        lng: formData.lng,
+        facebook: formData.facebook || '',
+        instagram: formData.instagram || '',
+        tiktok: formData.tiktok || '',
+        otherLink: formData.otherLink || ''
       });
 
       setShowConfirmModal(false);
@@ -1659,82 +1882,325 @@ const RegisterView = () => {
       navigate('/explorer');
     } catch (error) {
       console.error("Error:", error);
-      alert("Error al guardar. Intenta con imágenes más pequeñas.");
+      alert("Error al guardar. Intenta con imágenes más pequeñas o verifica tu conexión.");
     } finally {
       setIsSaving(false);
     }
   };
 
   const currentCategory = CATEGORIES.find(c => c.id === formData.category);
-  const totalSlots = getMaxGallerySlots() + 1;
+  const totalSlots = getMaxGallerySlots() + 1; // 15 total (1 portada + 14 galería)
 
   return (
     <div className="bg-slate-50 min-h-screen py-12 px-4 md:px-8 space-y-12 animate-in fade-in duration-500 relative">
+      
+      {/* Header */}
       <div className="max-w-4xl mx-auto text-center space-y-2">
         <h2 className="text-3xl md:text-4xl font-black text-[#001f3f] uppercase tracking-tighter">REGISTRO DE NEGOCIO</h2>
-        <p className="text-slate-500 font-medium">Únete a la Primera Plataforma Comercial de Honduras.</p>
+        <p className="text-slate-500 font-medium">Únete a la Primera Plataforma Comercial de Honduras</p>
       </div>
 
       <form onSubmit={handleSubmitAttempt} className="max-w-3xl mx-auto space-y-10 pb-20">
-        <section className="bg-white rounded-[2.5rem] shadow-xl p-8 md:p-10 border border-slate-100 space-y-8">
-          <div className="flex items-center gap-3"><div className="w-1.5 h-6 bg-yellow-400 rounded-full" /><h3 className="text-sm font-black text-[#001f3f] uppercase tracking-widest">Seleccione su Plan</h3></div>
-          <div className="flex bg-slate-50 p-2 rounded-2xl gap-2">
-            {[MembershipTier.INICIA, MembershipTier.IMPULSA, MembershipTier.DOMINA].map(t => (
-              <button key={t} type="button" onClick={() => setTier(t)} className={`flex-1 py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${tier === t ? 'bg-[#001f3f] text-yellow-400 shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>{t}</button>
-            ))}
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Propietario *</label><input type="text" name="ownerName" placeholder="Nombre completo" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold" value={formData.ownerName} onChange={handleInputChange} /></div>
-            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">DNI *</label><input type="text" name="dni" placeholder="0000-0000-00000" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold" value={formData.dni} onChange={handleInputChange} /></div>
-            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Email *</label><input type="email" name="email" placeholder="ejemplo@correo.com" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold" value={formData.email} onChange={handleInputChange} /></div>
-            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Teléfono *</label><input type="tel" name="phone" placeholder="9999-9999" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold" value={formData.phone} onChange={handleInputChange} /></div>
+        
+        {/* 🔥 PLAN ÚNICO - BADGE INFORMATIVO */}
+        <section className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-[2.5rem] shadow-2xl p-8 md:p-10 border border-blue-500 text-white">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
+                <Icon name="Trophy" className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-xl font-black uppercase tracking-tight">Plan Plus</h3>
+                  <span className="px-3 py-1 bg-yellow-400 text-[#0a2540] rounded-lg text-[9px] font-black uppercase tracking-widest">
+                    Oferta de lanzamiento
+                  </span>
+                </div>
+                <p className="text-sm text-blue-100 font-medium">Todo incluido · Sin contratos · Cancela cuando quieras</p>
+              </div>
+            </div>
+            <div className="bg-white/15 backdrop-blur-md rounded-2xl px-8 py-4 border border-white/20">
+              <div className="text-center">
+                <div className="flex items-baseline justify-center gap-1 mb-1">
+                  <span className="text-3xl font-black">L.75</span>
+                  <span className="text-sm font-black uppercase opacity-80">/mes</span>
+                </div>
+                <span className="text-xs text-blue-100 font-bold">15 fotos · Estadísticas · Soporte prioritario</span>
+              </div>
+            </div>
           </div>
         </section>
 
+        {/* DATOS DEL PROPIETARIO */}
         <section className="bg-white rounded-[2.5rem] shadow-xl p-8 md:p-10 border border-slate-100 space-y-8">
-          <div className="flex items-center gap-3"><div className="w-1.5 h-6 bg-yellow-400 rounded-full" /><h3 className="text-sm font-black text-[#001f3f] uppercase tracking-widest">DETALLES COMERCIALES</h3></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="md:col-span-2 space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Nombre del Negocio *</label><input type="text" name="businessName" placeholder="Nombre Comercial" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold" value={formData.businessName} onChange={handleInputChange} /></div>
-            <div className="md:col-span-2 space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Contraseña del Propietario *</label><input type="password" name="ownerPassword" placeholder="Crea una contraseña para gestionar tu negocio" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold" value={formData.ownerPassword} onChange={handleInputChange} /></div>
-            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Categoría *</label><select name="category" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold appearance-none" value={formData.category} onChange={handleInputChange}>{CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Subcategoría *</label><select name="subCategory" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold appearance-none" value={formData.subCategory} onChange={handleInputChange}><option value="">Seleccionar Subcategoría</option>{currentCategory?.subCategories.map(sc => <option key={sc.id} value={sc.id}>{sc.name}</option>)}</select></div>
+          <div className="flex items-center gap-3">
+            <div className="w-1.5 h-6 bg-yellow-400 rounded-full" />
+            <h3 className="text-sm font-black text-[#001f3f] uppercase tracking-widest">DATOS DEL PROPIETARIO</h3>
           </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-2">
+                Propietario * {errors.includes('ownerName') && <span className="text-red-500">(Requerido)</span>}
+              </label>
+              <input 
+                type="text" 
+                name="ownerName" 
+                placeholder="Nombre completo" 
+                className={`w-full bg-slate-50 border ${errors.includes('ownerName') ? 'border-red-500' : 'border-slate-200'} rounded-2xl py-4 px-6 outline-none font-bold focus:ring-2 focus:ring-blue-600/20`}
+                value={formData.ownerName} 
+                onChange={handleInputChange} 
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-2">
+                DNI * {errors.includes('dni') && <span className="text-red-500">(Requerido)</span>}
+              </label>
+              <input 
+                type="text" 
+                name="dni" 
+                placeholder="0000-0000-00000" 
+                className={`w-full bg-slate-50 border ${errors.includes('dni') ? 'border-red-500' : 'border-slate-200'} rounded-2xl py-4 px-6 outline-none font-bold focus:ring-2 focus:ring-blue-600/20`}
+                value={formData.dni} 
+                onChange={handleInputChange} 
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-2">
+                Email * {errors.includes('email') && <span className="text-red-500">(Requerido)</span>}
+              </label>
+              <input 
+                type="email" 
+                name="email" 
+                placeholder="ejemplo@correo.com" 
+                className={`w-full bg-slate-50 border ${errors.includes('email') ? 'border-red-500' : 'border-slate-200'} rounded-2xl py-4 px-6 outline-none font-bold focus:ring-2 focus:ring-blue-600/20`}
+                value={formData.email} 
+                onChange={handleInputChange} 
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-2">
+                Teléfono * {errors.includes('phone') && <span className="text-red-500">(Requerido)</span>}
+              </label>
+              <input 
+                type="tel" 
+                name="phone" 
+                placeholder="9999-9999" 
+                className={`w-full bg-slate-50 border ${errors.includes('phone') ? 'border-red-500' : 'border-slate-200'} rounded-2xl py-4 px-6 outline-none font-bold focus:ring-2 focus:ring-blue-600/20`}
+                value={formData.phone} 
+                onChange={handleInputChange} 
+                required
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* DETALLES COMERCIALES */}
+        <section className="bg-white rounded-[2.5rem] shadow-xl p-8 md:p-10 border border-slate-100 space-y-8">
+          <div className="flex items-center gap-3">
+            <div className="w-1.5 h-6 bg-yellow-400 rounded-full" />
+            <h3 className="text-sm font-black text-[#001f3f] uppercase tracking-widest">DETALLES COMERCIALES</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2 space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-2">
+                Nombre del Negocio * {errors.includes('businessName') && <span className="text-red-500">(Requerido)</span>}
+              </label>
+              <input 
+                type="text" 
+                name="businessName" 
+                placeholder="Nombre Comercial" 
+                className={`w-full bg-slate-50 border ${errors.includes('businessName') ? 'border-red-500' : 'border-slate-200'} rounded-2xl py-4 px-6 outline-none font-bold focus:ring-2 focus:ring-blue-600/20`}
+                value={formData.businessName} 
+                onChange={handleInputChange} 
+                required
+              />
+            </div>
+            
+            <div className="md:col-span-2 space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-2">
+                Contraseña del Propietario * {errors.includes('ownerPassword') && <span className="text-red-500">(Requerido)</span>}
+              </label>
+              <input 
+                type="password" 
+                name="ownerPassword" 
+                placeholder="Crea una contraseña para gestionar tu negocio" 
+                className={`w-full bg-slate-50 border ${errors.includes('ownerPassword') ? 'border-red-500' : 'border-slate-200'} rounded-2xl py-4 px-6 outline-none font-bold focus:ring-2 focus:ring-blue-600/20`}
+                value={formData.ownerPassword} 
+                onChange={handleInputChange} 
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Categoría *</label>
+              <select 
+                name="category" 
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold appearance-none focus:ring-2 focus:ring-blue-600/20" 
+                value={formData.category} 
+                onChange={handleInputChange}
+                required
+              >
+                {CATEGORIES.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-2">
+                Subcategoría * {errors.includes('subCategory') && <span className="text-red-500">(Requerido)</span>}
+              </label>
+              <select 
+                name="subCategory" 
+                className={`w-full bg-slate-50 border ${errors.includes('subCategory') ? 'border-red-500' : 'border-slate-200'} rounded-2xl py-4 px-6 outline-none font-bold appearance-none focus:ring-2 focus:ring-blue-600/20`}
+                value={formData.subCategory} 
+                onChange={handleInputChange}
+                required
+              >
+                <option value="">Seleccionar Subcategoría</option>
+                {currentCategory?.subCategories.map(sc => (
+                  <option key={sc.id} value={sc.id}>{sc.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          
           <div className="space-y-3">
-             <div className="flex justify-between items-center"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">RESUMEN *</label><button type="button" onClick={handleAutoRedact} disabled={isGenerating} className="px-4 py-2 bg-yellow-400 text-[#001f3f] rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:scale-105 active:scale-95 disabled:opacity-50"><Icon name="Sparkles" className="w-3 h-3" />{isGenerating ? 'GENERANDO...' : 'AUTO-REDACTAR'}</button></div>
-             <textarea name="description" placeholder="Descripción breve..." className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold h-32 resize-none" value={formData.description} onChange={handleInputChange} />
+            <div className="flex justify-between items-center">
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-2">
+                DESCRIPCIÓN * {errors.includes('description') && <span className="text-red-500">(Requerido)</span>}
+              </label>
+              <button 
+                type="button" 
+                onClick={handleAutoRedact} 
+                disabled={isGenerating} 
+                className="px-4 py-2 bg-yellow-400 text-[#001f3f] rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:scale-105 active:scale-95 disabled:opacity-50 transition-all"
+              >
+                <Icon name="Sparkles" className="w-3 h-3" />
+                {isGenerating ? 'GENERANDO...' : 'AUTO-REDACTAR'}
+              </button>
+            </div>
+            <textarea 
+              name="description" 
+              placeholder="Descripción breve de tu negocio..." 
+              className={`w-full bg-slate-50 border ${errors.includes('description') ? 'border-red-500' : 'border-slate-200'} rounded-2xl py-4 px-6 outline-none font-bold h-32 resize-none focus:ring-2 focus:ring-blue-600/20`}
+              value={formData.description} 
+              onChange={handleInputChange} 
+              required
+            />
           </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Dirección *</label><input type="text" name="address" placeholder="Ubicación física" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold" value={formData.address} onChange={handleInputChange} /></div>
-            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">WhatsApp *</label><input type="text" name="whatsapp" placeholder="WhatsApp" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold" value={formData.whatsapp} onChange={handleInputChange} /></div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-2">
+                Dirección * {errors.includes('address') && <span className="text-red-500">(Requerido)</span>}
+              </label>
+              <input 
+                type="text" 
+                name="address" 
+                placeholder="Ubicación física" 
+                className={`w-full bg-slate-50 border ${errors.includes('address') ? 'border-red-500' : 'border-slate-200'} rounded-2xl py-4 px-6 outline-none font-bold focus:ring-2 focus:ring-blue-600/20`}
+                value={formData.address} 
+                onChange={handleInputChange} 
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-2">
+                WhatsApp * {errors.includes('whatsapp') && <span className="text-red-500">(Requerido)</span>}
+              </label>
+              <input 
+                type="text" 
+                name="whatsapp" 
+                placeholder="50499887766" 
+                className={`w-full bg-slate-50 border ${errors.includes('whatsapp') ? 'border-red-500' : 'border-slate-200'} rounded-2xl py-4 px-6 outline-none font-bold focus:ring-2 focus:ring-blue-600/20`}
+                value={formData.whatsapp} 
+                onChange={handleInputChange} 
+                required
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* 🗺️ UBICACIÓN EN MAPA */}
+        <section className="bg-white rounded-[2.5rem] shadow-xl p-8 md:p-10 border border-slate-100 space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="w-1.5 h-6 bg-blue-600 rounded-full" />
+            <h3 className="text-sm font-black text-[#001f3f] uppercase tracking-widest">UBICACIÓN EN MAPA *</h3>
+          </div>
+          
+          <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div className="flex-1">
+                <p className="text-xs font-bold text-slate-600 mb-2">
+                  Los clientes podrán ver tu negocio en el mapa interactivo
+                </p>
+                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
+                  <Icon name="MapPin" className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Lat: {formData.lat.toFixed(5)} · Lng: {formData.lng.toFixed(5)}</span>
+                </div>
+              </div>
+            </div>
+            
+            <button
+              type="button"
+              onClick={() => setShowMapPicker(true)}
+              className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+            >
+              <Icon name="MapPin" className="w-4 h-4" />
+              {formData.lat === HONDURAS_CENTER[0] ? 'UBICAR MI NEGOCIO' : 'CAMBIAR UBICACIÓN'}
+            </button>
           </div>
         </section>
 
         {/* HORARIO DE ATENCIÓN */}
         <section className="bg-white rounded-[2.5rem] shadow-xl p-8 md:p-10 border border-slate-100 space-y-8">
-          <div className="flex items-center gap-3"><div className="w-1.5 h-6 bg-yellow-400 rounded-full" /><h3 className="text-sm font-black text-[#001f3f] uppercase tracking-widest">Horario de Atención</h3></div>
+          <div className="flex items-center gap-3">
+            <div className="w-1.5 h-6 bg-yellow-400 rounded-full" />
+            <h3 className="text-sm font-black text-[#001f3f] uppercase tracking-widest">Horario de Atención *</h3>
+          </div>
           
           <div className="space-y-3">
             {schedule.map((day, i) => (
               <div 
                 key={day.day} 
-                className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${day.open ? 'bg-slate-50 border-slate-200' : 'bg-slate-50/30 border-slate-100 opacity-60'}`}
+                className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${
+                  day.open ? 'bg-slate-50 border-slate-200' : 'bg-slate-50/30 border-slate-100 opacity-60'
+                }`}
               >
                 <button 
                   type="button" 
                   onClick={() => toggleDayOpen(i)}
-                  className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${day.open ? 'bg-blue-600' : 'bg-slate-300'}`}
+                  className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+                    day.open ? 'bg-blue-600' : 'bg-slate-300'
+                  }`}
                 >
-                  <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${day.open ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                  <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                    day.open ? 'translate-x-5' : 'translate-x-0.5'
+                  }`} />
                 </button>
-                <span className={`text-[11px] font-black uppercase tracking-tight w-24 shrink-0 ${day.open ? 'text-slate-700' : 'text-slate-400'}`}>
+                
+                <span className={`text-[11px] font-black uppercase tracking-tight w-24 shrink-0 ${
+                  day.open ? 'text-slate-700' : 'text-slate-400'
+                }`}>
                   {day.day}
                 </span>
+                
                 {day.open ? (
                   <div className="flex items-center gap-2 flex-1 flex-wrap sm:flex-nowrap">
                     <select 
                       value={day.from} 
                       onChange={e => updateDayTime(i, 'from', e.target.value)}
-                      className="bg-white border border-slate-200 rounded-xl py-2 px-3 text-xs font-bold outline-none flex-1 min-w-[90px] appearance-none cursor-pointer"
+                      className="bg-white border border-slate-200 rounded-xl py-2 px-3 text-xs font-bold outline-none flex-1 min-w-[90px] appearance-none cursor-pointer focus:ring-2 focus:ring-blue-600/20"
                     >
                       {Array.from({length: 24}, (_, h) => 
                         ['00','30'].map(m => {
@@ -1749,7 +2215,7 @@ const RegisterView = () => {
                     <select 
                       value={day.to} 
                       onChange={e => updateDayTime(i, 'to', e.target.value)}
-                      className="bg-white border border-slate-200 rounded-xl py-2 px-3 text-xs font-bold outline-none flex-1 min-w-[90px] appearance-none cursor-pointer"
+                      className="bg-white border border-slate-200 rounded-xl py-2 px-3 text-xs font-bold outline-none flex-1 min-w-[90px] appearance-none cursor-pointer focus:ring-2 focus:ring-blue-600/20"
                     >
                       {Array.from({length: 24}, (_, h) => 
                         ['00','30'].map(m => {
@@ -1774,63 +2240,213 @@ const RegisterView = () => {
           </div>
         </section>
 
-        {tier === MembershipTier.DOMINA && (
-          <section className="bg-white rounded-[2.5rem] shadow-xl p-8 md:p-10 border border-slate-100 space-y-8 animate-in slide-in-from-top-4">
-            <div className="flex items-center gap-3"><div className="w-1.5 h-6 bg-blue-600 rounded-full" /><h3 className="text-sm font-black text-[#001f3f] uppercase tracking-widest">ECOSISTEMA DIGITAL (DOMINA)</h3></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 flex items-center gap-2"><Icon name="Facebook" className="w-3 h-3" />FACEBOOK</label><input type="text" name="facebook" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-5 outline-none font-bold text-sm" value={formData.facebook} onChange={handleInputChange} /></div>
-              <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 flex items-center gap-2"><Icon name="Instagram" className="w-3 h-3" />INSTAGRAM</label><input type="text" name="instagram" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-5 outline-none font-bold text-sm" value={formData.instagram} onChange={handleInputChange} /></div>
-              <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 flex items-center gap-2"><Icon name="Music" className="w-3 h-3" />TIKTOK</label><input type="text" name="tiktok" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-5 outline-none font-bold text-sm" value={formData.tiktok} onChange={handleInputChange} /></div>
-              <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 flex items-center gap-2"><Icon name="Navigation" className="w-3 h-3" />OTROS</label><input type="text" name="otherLink" className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-5 outline-none font-bold text-sm" value={formData.otherLink} onChange={handleInputChange} /></div>
-            </div>
-          </section>
-        )}
-
+        {/* REDES SOCIALES (OPCIONAL) */}
         <section className="bg-white rounded-[2.5rem] shadow-xl p-8 md:p-10 border border-slate-100 space-y-8">
-           <div className="flex justify-between items-center"><div className="flex items-center gap-3"><div className="w-1.5 h-6 bg-yellow-400 rounded-full" /><h3 className="text-sm font-black text-[#001f3f] uppercase tracking-widest">FOTOS ({formData.gallery.length + (formData.image ? 1 : 0)}/{totalSlots})</h3></div></div>
-           <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-              <label className={`relative aspect-square rounded-3xl border-2 border-dashed ${errors.includes('image') ? 'border-red-500' : 'border-slate-200'} flex flex-col items-center justify-center cursor-pointer bg-slate-50 hover:bg-slate-100 overflow-hidden group`}>
-                 {formData.image ? <img src={formData.image} className="w-full h-full object-cover" alt="Port" /> : <div className="text-center"><Icon name="PlusCircle" className="mx-auto mb-1 text-slate-300 group-hover:text-blue-500" /><span className="text-[8px] font-black uppercase text-slate-400">Portada</span></div>}
-                 <input type="file" className="hidden" accept="image/*" onChange={e => handlePhotoUpload(e)} />
+          <div className="flex items-center gap-3">
+            <div className="w-1.5 h-6 bg-blue-600 rounded-full" />
+            <h3 className="text-sm font-black text-[#001f3f] uppercase tracking-widest">REDES SOCIALES (OPCIONAL)</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-slate-400 flex items-center gap-2">
+                <Icon name="Facebook" className="w-3 h-3" />FACEBOOK
               </label>
-              {formData.gallery.map((img, i) => (
-                <div key={i} className="relative aspect-square rounded-3xl overflow-hidden shadow-sm group">
-                   <img src={img} className="w-full h-full object-cover" alt="Gal" />
-                   <button type="button" onClick={() => setFormData(p => ({...p, gallery: p.gallery.filter((_, idx) => idx !== i)}))} className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-xl opacity-0 group-hover:opacity-100"><Icon name="X" className="w-3 h-3" /></button>
-                </div>
-              ))}
-              {formData.gallery.length < getMaxGallerySlots() && (
-                <label className="relative aspect-square rounded-3xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer bg-slate-50 hover:bg-slate-100"><Icon name="PlusCircle" className="text-slate-300 group-hover:text-blue-500" /><input type="file" className="hidden" accept="image/*" onChange={e => handlePhotoUpload(e, true)} /></label>
-              )}
-           </div>
+              <input 
+                type="text" 
+                name="facebook" 
+                placeholder="https://facebook.com/tunegocio"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-5 outline-none font-bold text-sm focus:ring-2 focus:ring-blue-600/20" 
+                value={formData.facebook} 
+                onChange={handleInputChange} 
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-slate-400 flex items-center gap-2">
+                <Icon name="Instagram" className="w-3 h-3" />INSTAGRAM
+              </label>
+              <input 
+                type="text" 
+                name="instagram" 
+                placeholder="https://instagram.com/tunegocio"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-5 outline-none font-bold text-sm focus:ring-2 focus:ring-blue-600/20" 
+                value={formData.instagram} 
+                onChange={handleInputChange} 
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-slate-400 flex items-center gap-2">
+                <Icon name="Music" className="w-3 h-3" />TIKTOK
+              </label>
+              <input 
+                type="text" 
+                name="tiktok" 
+                placeholder="https://tiktok.com/@tunegocio"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-5 outline-none font-bold text-sm focus:ring-2 focus:ring-blue-600/20" 
+                value={formData.tiktok} 
+                onChange={handleInputChange} 
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-slate-400 flex items-center gap-2">
+                <Icon name="Navigation" className="w-3 h-3" />SITIO WEB
+              </label>
+              <input 
+                type="text" 
+                name="otherLink" 
+                placeholder="https://tusitio.com"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-5 outline-none font-bold text-sm focus:ring-2 focus:ring-blue-600/20" 
+                value={formData.otherLink} 
+                onChange={handleInputChange} 
+              />
+            </div>
+          </div>
         </section>
-        <button type="submit" className="w-full py-6 bg-[#001f3f] text-yellow-400 rounded-3xl font-black uppercase tracking-[0.2em] shadow-2xl transition-all">INSCRIBIR NEGOCIO</button>
+
+        {/* FOTOS (OPCIONAL) */}
+        <section className="bg-white rounded-[2.5rem] shadow-xl p-8 md:p-10 border border-slate-100 space-y-8">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className="w-1.5 h-6 bg-yellow-400 rounded-full" />
+              <h3 className="text-sm font-black text-[#001f3f] uppercase tracking-widest">
+                FOTOS ({formData.gallery.length + (formData.image ? 1 : 0)}/{totalSlots}) (OPCIONAL)
+              </h3>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+            {/* Portada */}
+            <label className="relative aspect-square rounded-3xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer bg-slate-50 hover:bg-slate-100 overflow-hidden group transition-all">
+              {formData.image ? (
+                <img src={formData.image} className="w-full h-full object-cover" alt="Portada" />
+              ) : (
+                <div className="text-center">
+                  <Icon name="PlusCircle" className="mx-auto mb-1 text-slate-300 group-hover:text-blue-500 transition-colors" />
+                  <span className="text-[8px] font-black uppercase text-slate-400 group-hover:text-blue-500 transition-colors">Portada</span>
+                </div>
+              )}
+              <input type="file" className="hidden" accept="image/*" onChange={e => handlePhotoUpload(e)} />
+            </label>
+            
+            {/* Galería */}
+            {formData.gallery.map((img, i) => (
+              <div key={i} className="relative aspect-square rounded-3xl overflow-hidden shadow-sm group">
+                <img src={img} className="w-full h-full object-cover" alt={`Galería ${i + 1}`} />
+                <button 
+                  type="button" 
+                  onClick={() => setFormData(p => ({...p, gallery: p.gallery.filter((_, idx) => idx !== i)}))} 
+                  className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Icon name="X" className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+            
+            {/* Agregar más fotos */}
+            {formData.gallery.length < getMaxGallerySlots() && (
+              <label className="relative aspect-square rounded-3xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer bg-slate-50 hover:bg-slate-100 group transition-all">
+                <Icon name="PlusCircle" className="text-slate-300 group-hover:text-blue-500 transition-colors" />
+                <span className="text-[8px] font-black uppercase text-slate-400 mt-1 group-hover:text-blue-500 transition-colors">Agregar</span>
+                <input type="file" className="hidden" accept="image/*" onChange={e => handlePhotoUpload(e, true)} />
+              </label>
+            )}
+          </div>
+          
+          <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+            <p className="text-[10px] font-bold text-blue-600 flex items-center gap-2">
+              <Icon name="Info" className="w-3.5 h-3.5" />
+              Las fotos son opcionales pero muy recomendadas para atraer más clientes
+            </p>
+          </div>
+        </section>
+
+        {/* BOTÓN SUBMIT */}
+        <button 
+          type="submit" 
+          className="w-full py-6 bg-[#001f3f] text-yellow-400 rounded-3xl font-black uppercase tracking-[0.2em] shadow-2xl transition-all hover:scale-[1.02] active:scale-95"
+        >
+          INSCRIBIR NEGOCIO
+        </button>
       </form>
 
+      {/* 🗺️ MODAL DEL MAPA */}
+      {showMapPicker && <MapPickerComponent />}
+
+      {/* MODAL DE CONFIRMACIÓN */}
       {showConfirmModal && (
         <div className="fixed inset-0 bg-[#0a2540]/90 backdrop-blur-md z-[2000] flex items-center justify-center p-4 animate-in fade-in duration-300">
-           <div className="bg-white w-full max-w-lg rounded-[3.5rem] shadow-2xl p-10 md:p-12 space-y-8 animate-in slide-in-from-bottom-8 duration-500">
-              <div className="text-center space-y-3"><h3 className="text-3xl font-black text-[#0a2540] uppercase tracking-tighter">Confirmar Datos</h3><p className="text-slate-500 font-medium">Verifica antes de proceder.</p></div>
-              <div className="bg-slate-50 p-8 rounded-[2.5rem] space-y-4 border border-slate-100">
-                 <div className="flex flex-col"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Negocio</span><span className="text-lg font-black text-[#0a2540]">{formData.businessName}</span></div>
-                 <div className="flex flex-col"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Plan</span><span className="text-lg font-black text-blue-600 uppercase">PLAN {tier.toUpperCase()}</span></div>
+          <div className="bg-white w-full max-w-lg rounded-[3.5rem] shadow-2xl p-10 md:p-12 space-y-8 animate-in slide-in-from-bottom-8 duration-500">
+            
+            {/* Header */}
+            <div className="text-center space-y-3">
+              <h3 className="text-3xl font-black text-[#0a2540] uppercase tracking-tighter">Confirmar Datos</h3>
+              <p className="text-slate-500 font-medium">Verifica antes de proceder</p>
+            </div>
+            
+            {/* Info */}
+            <div className="bg-slate-50 p-8 rounded-[2.5rem] space-y-4 border border-slate-100">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Negocio</span>
+                <span className="text-lg font-black text-[#0a2540]">{formData.businessName}</span>
               </div>
-              <div className="space-y-6">
-                 <label className="flex items-start gap-4 p-4 rounded-2xl hover:bg-slate-50 cursor-pointer group relative">
-                    <input type="checkbox" className="peer h-6 w-6 appearance-none rounded-lg border-2 border-slate-300 bg-white checked:bg-blue-600 checked:border-blue-600" checked={hasConfirmedExplicitly} onChange={(e) => setHasConfirmedExplicitly(e.target.checked)} />
-                    <span className="text-xs font-bold text-slate-500">Confirmo que toda la información comercial es verídica.</span>
-                 </label>
-                 <div className="flex flex-col gap-4">
-                    <button type="button" onClick={handleFinalSubmit} disabled={!hasConfirmedExplicitly || isSaving} className={`w-full py-6 rounded-3xl font-black uppercase text-sm tracking-[0.3em] shadow-2xl ${hasConfirmedExplicitly && !isSaving ? 'bg-[#0a2540] text-yellow-400' : 'bg-slate-100 text-slate-300'}`}>{isSaving ? 'GUARDANDO...' : 'Inscribir Ahora'}</button>
-                    <button type="button" onClick={() => setShowConfirmModal(false)} className="w-full py-2 text-slate-400 font-black uppercase text-[10px]">Cancelar</button>
-                 </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Plan</span>
+                <span className="text-lg font-black text-blue-600 uppercase">PLAN PLUS</span>
               </div>
-           </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Propietario</span>
+                <span className="text-sm font-bold text-slate-600">{formData.ownerName}</span>
+              </div>
+            </div>
+            
+            {/* Checkbox */}
+            <div className="space-y-6">
+              <label className="flex items-start gap-4 p-4 rounded-2xl hover:bg-slate-50 cursor-pointer group relative">
+                <input 
+                  type="checkbox" 
+                  className="peer h-6 w-6 appearance-none rounded-lg border-2 border-slate-300 bg-white checked:bg-blue-600 checked:border-blue-600 cursor-pointer" 
+                  checked={hasConfirmedExplicitly} 
+                  onChange={(e) => setHasConfirmedExplicitly(e.target.checked)} 
+                />
+                <span className="text-xs font-bold text-slate-500">
+                  Confirmo que toda la información comercial es verídica y acepto los términos de uso.
+                </span>
+              </label>
+              
+              {/* Botones */}
+              <div className="flex flex-col gap-4">
+                <button 
+                  type="button" 
+                  onClick={handleFinalSubmit} 
+                  disabled={!hasConfirmedExplicitly || isSaving} 
+                  className={`w-full py-6 rounded-3xl font-black uppercase text-sm tracking-[0.3em] shadow-2xl transition-all ${
+                    hasConfirmedExplicitly && !isSaving 
+                      ? 'bg-[#0a2540] text-yellow-400 hover:scale-[1.02] active:scale-95' 
+                      : 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                  }`}
+                >
+                  {isSaving ? 'GUARDANDO...' : 'INSCRIBIR AHORA'}
+                </button>
+                
+                <button 
+                  type="button" 
+                  onClick={() => setShowConfirmModal(false)} 
+                  className="w-full py-2 text-slate-400 font-black uppercase text-[10px] hover:text-slate-600 transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
 };
+
 
 // --- ADMIM VIEW (Completo con Modal de Edición Restaurado) ---
 const AdminView = () => {
@@ -2144,10 +2760,10 @@ const AdminView = () => {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">
-                    Galería ({(editingBusiness.gallery || []).length}/{(() => { const t = editingBusiness.tier; return t === 'domina' ? 14 : t === 'impulsa' ? 7 : 3; })()})
+                    Galería 14
                   </label>
                   <span className="text-[9px] font-bold text-slate-400 uppercase bg-slate-100 px-3 py-1 rounded-lg">
-                    Plan {(editingBusiness.tier || 'lite').toUpperCase()}
+                    Plan PLUS
                   </span>
                 </div>
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
@@ -2185,7 +2801,7 @@ const AdminView = () => {
                     </div>
                   ))}
                   {/* Slot para agregar nueva imagen */}
-                  {(editingBusiness.gallery || []).length < (() => { const t = editingBusiness.tier; return t === 'domina' ? 14 : t === 'impulsa' ? 7 : 3; })() && (
+                  {(editingBusiness.gallery || []).length < 14 && (
                     <label className="relative aspect-square rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer bg-slate-50 hover:bg-blue-50 hover:border-blue-300 transition-all group">
                       <Icon name="PlusCircle" className="text-slate-300 group-hover:text-blue-500 w-5 h-5" />
                       <span className="text-[8px] font-black uppercase text-slate-400 mt-1 group-hover:text-blue-500">Agregar</span>

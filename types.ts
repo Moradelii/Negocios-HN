@@ -4,10 +4,9 @@ export enum BusinessStatus {
   REJECTED = 'rejected'
 }
 
+// 🔥 ACTUALIZADO: Solo un tier ahora - PLUS
 export enum MembershipTier {
-  INICIA = 'inicia',
-  IMPULSA = 'impulsa',
-  DOMINA = 'domina'
+  PLUS = 'plus'
 }
 
 export interface SubCategory {
@@ -50,20 +49,28 @@ export interface Business {
 export const CATEGORIES: Category[] = [
   { 
     id: 'agricultura-agroindustria', 
-    name: 'Agricultura y Ganadería', 
+    name: 'Agricultura y Agroindustria', 
     icon: 'Sprout', 
     subCategories: [
-      { id: 'agricultura-sostenible', name: 'Agricultura tradicional y sostenible' },
-      { id: 'produccion-organica', name: 'Producción orgánica' },
-      { id: 'ganaderia-avicultura', name: 'Ganadería y avicultura' },
-      { id: 'apicultura', name: 'Apicultura (miel y derivados)' },
-      { id: 'piscicultura', name: 'Piscicultura y acuicultura' },
-      { id: 'procesadoras-alimentos', name: 'Procesadoras de alimentos' },
+      { id: 'agricultura-tradicional', name: 'Agricultura tradicional y sostenible' },
+      { id: 'agroexportadoras', name: 'Agroexportadoras' },
+      { id: 'alimentos-balanceados', name: 'Alimentos balanceados para peces/ganado' },
+      { id: 'apicultura', name: 'Apicultura (miel, derivados)' },
+      { id: 'avicultura', name: 'Avicultura' },
+      { id: 'empacadoras-frutas', name: 'Empacadoras y exportadoras de frutas' },
+      { id: 'exportadoras-agricolas', name: 'Exportadoras agrícolas' },
+      { id: 'ganaderia', name: 'Ganadería' },
       { id: 'insumos-agricolas', name: 'Insumos agrícolas (semillas, fertilizantes)' },
+      { id: 'insumos-veterinarios', name: 'Insumos veterinarios' },
       { id: 'maquinaria-agricola', name: 'Maquinaria y herramientas agrícolas' },
+      { id: 'piscicultura-acuicultura', name: 'Piscicultura y acuicultura' },
+      { id: 'plantas-exoticas', name: 'Plantas exóticas y ornamentales' },
+      { id: 'porcicultura', name: 'Porcicultura' },
+      { id: 'procesadoras-alimentos', name: 'Procesadoras de alimentos' },
+      { id: 'produccion-organica', name: 'Producción orgánica' },
+      { id: 'venta-alevines', name: 'Venta de alevines' },
       { id: 'venta-productos-campo', name: 'Venta directa de productos del campo' },
-      { id: 'viveros-plantas', name: 'Viveros y plantas ornamentales' },
-      { id: 'agroexportadoras', name: 'Empacadoras y agroexportadoras' }
+      { id: 'viveros-plantas', name: 'Viveros y plantas ornamentales' }
     ] 
   },
   { 
@@ -71,149 +78,187 @@ export const CATEGORIES: Category[] = [
     name: 'Alimentación y Bebidas', 
     icon: 'Utensils', 
     subCategories: [
-      { id: 'restaurantes', name: 'Restaurantes' },
-      { id: 'comida-rapida', name: 'Comida rápida' },
-      { id: 'baleadas-tipica', name: 'Baleadas y comida típica hondureña' },
-      { id: 'comedores-populares', name: 'Comedores populares' },
       { id: 'cafeterias', name: 'Cafeterías' },
-      { id: 'cafe-especializado', name: 'Café hondureño especializado' },
-      { id: 'pasteleria-panaderia', name: 'Pastelerías y panaderías' },
-      { id: 'tortillerias', name: 'Tortillerías' },
-      { id: 'rosticeria', name: 'Rosticerías / pollo asado' },
-      { id: 'heladerias-raspados', name: 'Heladerías y raspados' },
-      { id: 'food-trucks', name: 'Food trucks' },
+      { id: 'carnicerias-marisquerias', name: 'Carnicerías y marisquerías' },
       { id: 'catering-eventos', name: 'Catering y eventos' },
+      { id: 'comidas-rapidas', name: 'Comidas rápidas' },
+      { id: 'food-trucks', name: 'Food trucks' },
+      { id: 'frutas-verduras', name: 'Frutas y Verduras' },
       { id: 'jugos-batidos', name: 'Jugos, batidos y smoothies' },
-      { id: 'tiendas-saludables', name: 'Tiendas saludables / orgánicos' },
-      { id: 'abarrotes-minisuper', name: 'Tiendas de abarrotes / minisúper' },
+      { id: 'licorerias', name: 'Licorerías' },
+      { id: 'pasteleria-panaderia', name: 'Pastelerías y panaderías' },
       { id: 'pulperias', name: 'Pulperías' },
-      { id: 'carnicer­ias-marisquerias', name: 'Carnicerías y marisquerías' },
-      { id: 'verdulerias', name: 'Verdulerías' },
-      { id: 'licorerias', name: 'Licorerías' }
+      { id: 'restaurantes', name: 'Restaurantes' },
+      { id: 'restaurantes-tematicos', name: 'Restaurantes temáticos' },
+      { id: 'tiendas-abarrotes', name: 'Tiendas de abarrotes / minisúper' },
+      { id: 'tiendas-saludables', name: 'Tiendas saludables / orgánicos' },
+      { id: 'cafe-especializado', name: 'Vendedores de café especializado' }
     ] 
   },
   { 
-    id: 'arte-cultura-artesanias', 
-    name: 'Arte, Cultura y Artesanías', 
+    id: 'arte-cultura-entretenimiento', 
+    name: 'Arte, Cultura y Entretenimiento', 
     icon: 'Palette', 
     subCategories: [
-      { id: 'artistas-plasticos', name: 'Artistas plásticos y artesanos' },
-      { id: 'fotografia-videografia', name: 'Fotografía y videografía' },
-      { id: 'diseno-grafico', name: 'Diseño gráfico' },
-      { id: 'produccion-audiovisual', name: 'Producción audiovisual' },
-      { id: 'musicos-djs', name: 'Músicos y DJs' },
-      { id: 'librerias', name: 'Librerías' },
-      { id: 'teatros-espectaculos', name: 'Teatros y espectáculos' },
-      { id: 'instrumentos-musica', name: 'Tiendas de instrumentos musicales' },
       { id: 'academias-arte-musica', name: 'Academias de arte y música' },
-      { id: 'velas-artesanales', name: 'Velas artesanales' },
-      { id: 'jabones-artesanales', name: 'Jabones artesanales' },
-      { id: 'manualidades', name: 'Manualidades y productos hechos a mano' },
-      { id: 'bisuteria', name: 'Bisutería' },
-      { id: 'sublimacion', name: 'Sublimación personalizada' },
-      { id: 'regalos-personalizados', name: 'Regalos personalizados' },
-      { id: 'papeleria-creativa', name: 'Papelería creativa' },
-      { id: 'cuadros-arte-decorativo', name: 'Cuadros y arte decorativo' },
-
+      { id: 'artistas-artesanos', name: 'Artistas plásticos y artesanos' },
+      { id: 'cines', name: 'Cines' },
+      { id: 'fotografia-videografia', name: 'Fotografía y videografía' },
+      { id: 'librerias', name: 'Librerías' },
+      { id: 'musicos-djs', name: 'Músicos y DJs' },
+      { id: 'produccion-audiovisual', name: 'Producción audiovisual' },
+      { id: 'teatros-espectaculos', name: 'Teatros y espectáculos' },
+      { id: 'tiendas-instrumentos', name: 'Tiendas de instrumentos' }
     ] 
   },
   { 
-    id: 'automotriz', 
+    id: 'artesanias-emprendedores', 
+    name: 'Artesanías y Emprendedores Locales', 
+    icon: 'Hand', 
+    subCategories: [
+      { id: 'bisuteria', name: 'Bisutería' },
+      { id: 'insumos-manualidades', name: 'Insumos para manualidades' },
+      { id: 'jabones-artesanales', name: 'Jabones artesanales' },
+      { id: 'manualidades', name: 'Manualidades' },
+      { id: 'papeleria-creativa', name: 'Papelería creativa' },
+      { id: 'productos-hechos-mano', name: 'Productos hechos a mano' },
+      { id: 'regalos-personalizados', name: 'Regalos personalizados' },
+      { id: 'sublimacion', name: 'Sublimación personalizada' },
+      { id: 'velas-artesanales', name: 'Velas artesanales' }
+    ] 
+  },
+  { 
+    id: 'autos-motos-bicicletas', 
     name: 'Autos, Motos y Bicicletas', 
     icon: 'Car', 
     subCategories: [
-      { id: 'talleres-mecanicos', name: 'Talleres mecánicos' },
       { id: 'autopartes-repuestos', name: 'Autopartes y repuestos' },
-      { id: 'llantas-baterias', name: 'Llantas y baterías' },
       { id: 'electricidad-automotriz', name: 'Electricidad automotriz' },
-      { id: 'lavado', name: 'Lavado' },
-      { id: 'alquiler-vehiculos', name: 'Alquiler de vehículos' },
+      { id: 'gruas-asistencia', name: 'Grúas y asistencia vial' },
+      { id: 'lavado-planchado', name: 'Lavado y planchado' },
+      { id: 'llantas-baterias', name: 'Llantas y baterías' },
+      { id: 'talleres-mecanicos', name: 'Talleres mecánicos' },
       { id: 'venta-autos', name: 'Venta de autos nuevos/usados' },
-      { id: 'venta-motos-bicicletas', name: 'Venta de motos y bicicletas' },
-      { id: 'gruas-asistencia', name: 'Grúas y asistencia vial' }
+      { id: 'venta-motos-bicicletas', name: 'Venta de motos y bicicletas' }
+    ] 
+  },
+  { 
+    id: 'bienes-raices-inmobiliaria', 
+    name: 'Bienes Raíces e Inmobiliaria', 
+    icon: 'Building', 
+    subCategories: [
+      { id: 'administracion-propiedades', name: 'Administración de propiedades' },
+      { id: 'agentes-arrendamientos', name: 'Agentes de Arrendamientos' },
+      { id: 'agentes-estado', name: 'Agentes de Estado (bienes nacionales)' },
+      { id: 'avaluos', name: 'Avalúos' },
+      { id: 'consultores-propiedad', name: 'Consultores de Propiedad' },
+      { id: 'corredores-inmobiliarios', name: 'Corredores inmobiliarios' },
+      { id: 'desarrollo-urbanistico', name: 'Desarrollo Urbanístico' },
+      { id: 'desarrollos-residenciales', name: 'Desarrollos Residenciales' },
+      { id: 'equipo-seguridad-incendios', name: 'Equipo de Seguridad contra Incendios' },
+      { id: 'mudanzas-reubicacion', name: 'Mudanzas y Reubicación' },
+      { id: 'propiedad-comercial', name: 'Propiedad Comercial' },
+      { id: 'propiedad-extranjera', name: 'Propiedad Extranjera' },
+      { id: 'renovaciones-propiedad', name: 'Renovaciones de Propiedad' },
+      { id: 'seguridad-propiedad', name: 'Seguridad de Propiedad' },
+      { id: 'subastas-propiedad', name: 'Subastas de Propiedad' },
+      { id: 'venta-casas', name: 'Venta de casas' },
+      { id: 'venta-alquiler-propiedades', name: 'Venta/alquiler de propiedades' }
     ] 
   },
   { 
     id: 'comercio-electronico', 
-    name: 'Comercio Electrónico', 
+    name: 'Comercio Electrónico y Tiendas Online', 
     icon: 'ShoppingBag', 
     subCategories: [
-      { id: 'tiendas-online', name: 'Tiendas online' },
       { id: 'dropshipping', name: 'Dropshipping' },
-      { id: 'productos-digitales', name: 'Productos digitales' },
       { id: 'marketplaces', name: 'Marketplaces' },
-      { id: 'envios-ecommerce', name: 'Servicios de envíos para ecommerce' }
+      { id: 'productos-digitales', name: 'Productos digitales' },
+      { id: 'envios-ecommerce', name: 'Servicios de envíos para ecommerce' },
+      { id: 'tiendas-online', name: 'Tiendas online' }
     ] 
   },
   { 
-    id: 'construccion-inmobiliaria', 
-    name: 'Construcción e Inmobiliaria', 
-    icon: 'Hammer', 
+    id: 'compras-retail', 
+    name: 'Compras y Retail', 
+    icon: 'ShoppingCart', 
     subCategories: [
-      { id: 'constructoras', name: 'Constructoras' },
-      { id: 'remodelaciones', name: 'Remodelaciones' },
-      { id: 'arquitectos-ingenieros', name: 'Arquitectos e ingenieros' },
-      { id: 'maestros-obra', name: 'Maestros de obra' },
+      { id: 'boutiques', name: 'Boutiques' },
+      { id: 'centros-comerciales', name: 'Centros comerciales' },
+      { id: 'cosmeticos', name: 'Cosméticos y belleza' },
+      { id: 'deportes', name: 'Deportes' },
+      { id: 'electrodomesticos', name: 'Electrodomésticos' },
       { id: 'ferreterias', name: 'Ferreterías' },
-      { id: 'pintores', name: 'Pintores' },
-      { id: 'electricistas', name: 'Electricistas' },
-      { id: 'plomeros', name: 'Plomeros' },
-      { id: 'carpinteros', name: 'Carpinteros' },
-      { id: 'alquiler-maquinaria', name: 'Alquiler de maquinaria' },
-      { id: 'inmobiliarias', name: 'Inmobiliarias' },
-      { id: 'venta-propiedades', name: 'Venta de propiedades' },
-      { id: 'alquiler-propiedades', name: 'Alquiler de propiedades' },
-      { id: 'desarrollos-residenciales', name: 'Desarrollos residenciales' },
-      { id: 'avaluos', name: 'Avalúos' }
+      { id: 'joyerias', name: 'Joyerías' },
+      { id: 'jugueterias', name: 'Jugueterías' },
+      { id: 'libreria-papeleria', name: 'Librerías y papelería' },
+      { id: 'muebles-decoracion', name: 'Muebles y decoración' },
+      { id: 'opticas', name: 'Ópticas' },
+      { id: 'perfumerias', name: 'Perfumerías' },
+      { id: 'relojerias', name: 'Relojerías' },
+      { id: 'supermercados', name: 'Supermercados' },
+      { id: 'tiendas-departamento', name: 'Tiendas por departamento' },
+      { id: 'zapaterias', name: 'Zapaterías' }
     ] 
   },
   { 
-    id: 'deportes-recreacion', 
-    name: 'Deportes y Recreación', 
+    id: 'construccion-remodelacion', 
+    name: 'Construcción y Remodelación', 
+    icon: 'HardHat', 
+    subCategories: [
+      { id: 'albanileria', name: 'Albañilería' },
+      { id: 'arquitectura', name: 'Arquitectura' },
+      { id: 'carpinteria', name: 'Carpintería' },
+      { id: 'diseno-interiores', name: 'Diseño de interiores' },
+      { id: 'electricidad', name: 'Electricidad' },
+      { id: 'herreria', name: 'Herrería' },
+      { id: 'ingenieria-civil', name: 'Ingeniería civil' },
+      { id: 'jardineria-paisajismo', name: 'Jardinería y paisajismo' },
+      { id: 'materiales-construccion', name: 'Materiales de construcción' },
+      { id: 'pintura', name: 'Pintura' },
+      { id: 'plomeria', name: 'Plomería' },
+      { id: 'soldadura', name: 'Soldadura' },
+      { id: 'vidrios-aluminios', name: 'Vidrios y aluminios' }
+    ] 
+  },
+  { 
+    id: 'deportes-fitness', 
+    name: 'Deportes y Fitness', 
     icon: 'Dumbbell', 
     subCategories: [
-      { id: 'gimnasios', name: 'Gimnasios' },
       { id: 'entrenadores-personales', name: 'Entrenadores personales' },
-      { id: 'academias-deportivas', name: 'Academias deportivas (fútbol, baloncesto)' },
-      { id: 'tiendas-deportivas', name: 'Tiendas deportivas' },
-      { id: 'parques-centros-recreativos', name: 'Parques y centros recreativos' },
-      { id: 'yoga-pilates-artes-marciales', name: 'Yoga / pilates / artes marciales' }
+      { id: 'gimnasios', name: 'Gimnasios' },
+      { id: 'nutricion-deportiva', name: 'Nutrición deportiva' },
+      { id: 'tiendas-deportes', name: 'Tiendas de deportes' },
+      { id: 'yoga-pilates', name: 'Yoga y Pilates' }
     ] 
   },
   { 
-    id: 'educacion-formacion', 
-    name: 'Educación y Formación', 
+    id: 'educacion-capacitacion', 
+    name: 'Educación y Capacitación', 
     icon: 'GraduationCap', 
     subCategories: [
-      { id: 'escuelas-colegios', name: 'Escuelas y colegios' },
-      { id: 'universidades', name: 'Universidades' },
-      { id: 'guarderias', name: 'Guarderías' },
-      { id: 'clases-particulares', name: 'Clases particulares' },
       { id: 'academias-idiomas', name: 'Academias de idiomas' },
+      { id: 'centros-capacitacion', name: 'Centros de capacitación técnica' },
+      { id: 'clases-particulares', name: 'Clases particulares' },
+      { id: 'colegios', name: 'Colegios' },
       { id: 'cursos-online', name: 'Cursos online' },
-      { id: 'talleres-tecnicos', name: 'Talleres técnicos' },
-      { id: 'coaching-mentoria', name: 'Coaching y mentoría' }
+      { id: 'guarderias', name: 'Guarderías' },
+      { id: 'universidades', name: 'Universidades' }
     ] 
   },
   { 
-    id: 'tecnologia-electronica', 
-    name: 'Tecnología y Electrónica', 
-    icon: 'Cpu', 
+    id: 'entretenimiento-eventos', 
+    name: 'Entretenimiento y Eventos', 
+    icon: 'PartyPopper', 
     subCategories: [
-      { id: 'desarrollo-software', name: 'Desarrollo de software' },
-      { id: 'apps-moviles', name: 'Apps móviles' },
-      { id: 'reparacion-celulares', name: 'Reparación de celulares' },
-	  { id: 'venta-celulares', name: 'Venta de celulares y Accesorios' },
-      { id: 'reparacion-computadoras', name: 'Reparación de computadoras' },
-      { id: 'servicio-tecnico-tv', name: 'Servicio técnico de televisores' },
-      { id: 'ciberseguridad', name: 'Ciberseguridad' },
-      { id: 'soporte-tecnico', name: 'Soporte técnico' },
-      { id: 'tiendas-tecnologia', name: 'Tiendas de tecnología' },
-      { id: 'venta-accesorios', name: 'Venta de accesorios' },
-      { id: 'internet-redes', name: 'Servicios de internet y redes' },
-      { id: 'gaming', name: 'Gaming (consolas, videojuegos)' },
-      { id: 'drones', name: 'Drones y accesorios' },
-      { id: 'impresoras-consumibles', name: 'Impresoras y consumibles' }
+      { id: 'animadores', name: 'Animadores' },
+      { id: 'bares', name: 'Bares y discotecas' },
+      { id: 'bowling', name: 'Bowling' },
+      { id: 'cines', name: 'Cines' },
+      { id: 'organizacion-eventos', name: 'Organización de eventos' },
+      { id: 'parques-diversion', name: 'Parques de diversión' },
+      { id: 'salones-fiestas', name: 'Salones de fiestas' }
     ] 
   },
   { 
@@ -221,42 +266,59 @@ export const CATEGORIES: Category[] = [
     name: 'Hogar y Decoración', 
     icon: 'Home', 
     subCategories: [
-      { id: 'muebles', name: 'Muebles' },
-      { id: 'decoracion', name: 'Decoración' },
+      { id: 'alfombras-cortinas', name: 'Alfombras y cortinas' },
+      { id: 'antiguedades', name: 'Antigüedades' },
       { id: 'electrodomesticos', name: 'Electrodomésticos' },
-      { id: 'jardineria', name: 'Jardinería' },
-      { id: 'limpieza-hogar', name: 'Limpieza del hogar' },
-      { id: 'cortinas-persianas', name: 'Cortinas y persianas' },
-      { id: 'colchones', name: 'Colchones' },
-      { id: 'cerrajeria', name: 'Cerrajería' },
-      { id: 'tapiceria', name: 'Tapicería' },
-      { id: 'vidrios-espejos', name: 'Vidrios y espejos' },
-      { id: 'pisos-azulejos', name: 'Pisos y azulejos' },
-      { id: 'iluminacion', name: 'Iluminación (lámparas, LED)' },
-	  { id: 'resina-epoxica', name: 'Resina epóxica (relojes, cuadros, decoración)' },
-      { id: 'lavado-planchado', name: 'Lavado y planchado' },	  
-      { id: 'tufting-alfombras', name: 'Tufting / alfombras artesanales / MousePad' }
+      { id: 'iluminacion', name: 'Iluminación' },
+      { id: 'menaje-hogar', name: 'Menaje del hogar' },
+      { id: 'muebles', name: 'Muebles' },
+      { id: 'plantas-decoracion', name: 'Plantas de decoración' },
+      { id: 'tapiceria', name: 'Tapicería' }
+    ] 
+  },
+  { 
+    id: 'mascotas', 
+    name: 'Mascotas', 
+    icon: 'Leaf', 
+    subCategories: [
+      { id: 'adiestramiento', name: 'Adiestramiento' },
+      { id: 'alimentos-accesorios', name: 'Alimentos y accesorios' },
+      { id: 'estetica-canina', name: 'Estética canina' },
+      { id: 'guarderias', name: 'Guarderías' },
+      { id: 'tiendas-mascotas', name: 'Tiendas de mascotas' },
+      { id: 'veterinarias', name: 'Veterinarias' }
     ] 
   },
   { 
     id: 'moda-belleza', 
     name: 'Moda y Belleza', 
-    icon: 'Shirt', 
+    icon: 'Sparkles', 
     subCategories: [
-      { id: 'tiendas-ropa', name: 'Tiendas de ropa' },
-      { id: 'zapaterias', name: 'Zapaterías' },
-      { id: 'accesorios', name: 'Accesorios' },
-      { id: 'joyerias', name: 'Joyerías' },
-      { id: 'relojerias', name: 'Relojerías' },
-      { id: 'segunda-mano', name: 'Tiendas de segunda mano / consignación' },
-      { id: 'alquiler-vestidos', name: 'Alquiler de vestidos (XV años, bodas)' },
-      { id: 'sastreria', name: 'Sastrería' },
+      { id: 'barberia', name: 'Barberías' },
+      { id: 'boutiques', name: 'Boutiques' },
+      { id: 'cosmetologia', name: 'Cosmetología' },
+      { id: 'maquillaje', name: 'Maquillaje profesional' },
+      { id: 'peluquerias', name: 'Peluquerías' },
       { id: 'salones-belleza', name: 'Salones de belleza' },
-      { id: 'barberias', name: 'Barberías' },
-      { id: 'maquillistas', name: 'Maquillistas' },
-      { id: 'unas-estetica', name: 'Uñas y estética' },
-      { id: 'perfumerias', name: 'Perfumerías' },
-      { id: 'extensiones-cabello', name: 'Extensiones de cabello' }
+      { id: 'spa-masajes', name: 'Spa y masajes' },
+      { id: 'tatuajes-piercings', name: 'Tatuajes y piercings' },
+      { id: 'tiendas-ropa', name: 'Tiendas de ropa' },
+      { id: 'unas', name: 'Uñas' }
+    ] 
+  },
+  { 
+    id: 'publicidad-marketing', 
+    name: 'Publicidad y Marketing', 
+    icon: 'Megaphone', 
+    subCategories: [
+      { id: 'agencias-marketing', name: 'Agencias de marketing' },
+      { id: 'community-managers', name: 'Community managers' },
+      { id: 'diseno-grafico', name: 'Diseño gráfico' },
+      { id: 'fotografia-producto', name: 'Fotografía de producto' },
+      { id: 'imprentas', name: 'Imprentas' },
+      { id: 'publicidad-exterior', name: 'Publicidad exterior' },
+      { id: 'rotulacion', name: 'Rotulación' },
+      { id: 'video-marketing', name: 'Video marketing' }
     ] 
   },
   { 
@@ -264,123 +326,42 @@ export const CATEGORIES: Category[] = [
     name: 'Salud y Bienestar', 
     icon: 'HeartPulse', 
     subCategories: [
-      { id: 'hospitales', name: 'Hospitales' },
-      { id: 'clinicas-medicas', name: 'Clínicas médicas' },
       { id: 'clinicas-dentales', name: 'Clínicas dentales' },
-      { id: 'laboratorios-clinicos', name: 'Laboratorios clínicos' },
+      { id: 'clinicas-medicas', name: 'Clínicas médicas' },
       { id: 'farmacias', name: 'Farmacias' },
-      { id: 'psicologos', name: 'Psicólogos' },
-      { id: 'nutricionistas', name: 'Nutricionistas' },
-      { id: 'centros-rehabilitacion', name: 'Centros de rehabilitación' },
-      { id: 'spa-masajes', name: 'Spa y masajes' },
-      { id: 'tiendas-naturistas', name: 'Tiendas naturistas' },
-      { id: 'quiropracticos', name: 'Quiroprácticos' },
       { id: 'fisioterapia', name: 'Fisioterapia' },
-      { id: 'terapia-ocupacional', name: 'Terapia ocupacional' },
-      { id: 'podologos', name: 'Podólogos' },
+      { id: 'hospitales', name: 'Hospitales' },
+      { id: 'laboratorios', name: 'Laboratorios clínicos' },
+      { id: 'medicina-alternativa', name: 'Medicina alternativa' },
+      { id: 'nutricion', name: 'Nutrición' },
       { id: 'opticas', name: 'Ópticas' },
-      { id: 'ambulancias-privadas', name: 'Ambulancias privadas' }
+      { id: 'psicologia', name: 'Psicología' }
     ] 
   },
   { 
-    id: 'mascotas-veterinaria', 
-    name: 'Mascotas y Veterinaria', 
-    icon: 'Dog', 
+    id: 'servicios-empresariales', 
+    name: 'Servicios Empresariales', 
+    icon: 'Briefcase', 
     subCategories: [
-      { id: 'veterinarias', name: 'Clínicas veterinarias' },
-      { id: 'peluquerias-caninas', name: 'Peluquerías caninas (grooming)' },
-      { id: 'tiendas-mascotas', name: 'Tiendas de mascotas' },
-      { id: 'alimentos-accesorios', name: 'Alimentos y accesorios' },
-      { id: 'pensiones-guarderias', name: 'Pensiones/guarderías para mascotas' },
-      { id: 'adiestramiento', name: 'Adiestramiento' },
-      { id: 'ambulancias-veterinarias', name: 'Ambulancias veterinarias' }
-    ] 
-  },
-  { 
-    id: 'servicios-ambientales', 
-    name: 'Servicios Ambientales y Energía', 
-    icon: 'Leaf', 
-    subCategories: [
-      { id: 'energia-solar', name: 'Energía solar' },
-      { id: 'energia-eolica', name: 'Energía eólica' },
-      { id: 'reciclaje', name: 'Reciclaje' },
-      { id: 'gestion-residuos', name: 'Gestión de residuos' },
-      { id: 'limpieza-industrial', name: 'Limpieza industrial' },
-      { id: 'fumigacion', name: 'Fumigación' },
-      { id: 'tratamiento-agua', name: 'Tratamiento de agua' }
-    ] 
-  },
-  { 
-    id: 'marketing-publicidad', 
-    name: 'Marketing y Publicidad', 
-    icon: 'Megaphone', 
-    subCategories: [
-      { id: 'publicidad', name: 'Publicidad' },
-      { id: 'marketing-digital', name: 'Marketing digital' },
-      { id: 'community-managers', name: 'Community managers' },
-      { id: 'fotografia-comercial', name: 'Fotografía comercial' },
-      { id: 'produccion-contenido', name: 'Producción de contenido' },
-      { id: 'branding', name: 'Branding' },
-      { id: 'desarrollo-web', name: 'Diseño y desarrollo web' },
-	  { id: 'diseño-grafico', name: 'Diseño gráfico / Logos / banners' },
-      { id: 'impresion-rotulacion', name: 'Impresión y rotulación' },
-      { id: 'edicion-video', name: 'Edición de video' },
-      { id: 'comunicacion', name: 'Radio / Televisión / Lives / Redes Sociales' },	  
-      { id: 'motion-graphics', name: 'Motion graphics / Motion flyers' }
-    ] 
-  },
-  { 
-    id: 'eventos-celebraciones', 
-    name: 'Eventos y Celebraciones', 
-    icon: 'PartyPopper', 
-    subCategories: [
-      { id: 'organizacion-eventos', name: 'Organización de eventos' },
-      { id: 'alquiler-mobiliario', name: 'Alquiler de mobiliario' },
-      { id: 'sonido-iluminacion', name: 'Sonido e iluminación' },
-      { id: 'djs', name: 'DJs' },
-      { id: 'decoracion-eventos', name: 'Decoración' },
-      { id: 'salones-eventos', name: 'Salones para eventos' },
-      { id: 'catering', name: 'Catering' },
-      { id: 'fotografia-eventos', name: 'Fotografía de eventos' }
-    ] 
-  },
-  { 
-    id: 'logistica-transporte', 
-    name: 'Logística y Transporte', 
-    icon: 'Truck', 
-    subCategories: [
-      { id: 'delivery', name: 'Delivery' },
-      { id: 'mensajeria', name: 'Mensajería' },
-      { id: 'mudanzas', name: 'Mudanzas' },
-      { id: 'transporte-carga', name: 'Transporte de carga' },
-      { id: 'transporte-privado', name: 'Transporte privado' },
-      { id: 'taxis', name: 'Taxis' },
-      { id: 'mototaxis', name: 'Mototaxis' },
-      { id: 'transporte-escolar', name: 'Transporte escolar' },
-      { id: 'alquiler-buses', name: 'Alquiler de buses' },
-      { id: 'bodegas-almacenamiento', name: 'Bodegas y almacenamiento' },
-      { id: 'courier-internacional', name: 'Courier internacional' },
-      { id: 'gasolineras-starmart', name: 'Gasolineras y Starmart' },
-      { id: 'casilleros-virtuales', name: 'Casilleros virtuales (Miami, USA)' }
-    ] 
-  },
-  { 
-    id: 'servicios-financieros-legales', 
-    name: 'Servicios Financieros y Legales', 
-    icon: 'Landmark', 
-    subCategories: [
-      { id: 'bancos', name: 'Bancos' },
-      { id: 'cooperativas', name: 'Cooperativas' },
-      { id: 'microcreditos', name: 'Microcréditos' },
-      { id: 'seguros', name: 'Seguros' },
-      { id: 'contadores', name: 'Contadores' },
-      { id: 'asesoria-fiscal', name: 'Asesoría fiscal' },
-      { id: 'casas-cambio', name: 'Casas de cambio' },
-      { id: 'pagos-digitales', name: 'Pagos digitales' },
-      { id: 'abogados', name: 'Abogados' },
-      { id: 'notarias', name: 'Notarías' },
-      { id: 'consultoria-legal', name: 'Consultoría legal' },
-      { id: 'mediacion-arbitraje', name: 'Mediación y arbitraje' }
+      { id: 'consultores', name: 'Consultores' },
+      { id: 'consultores-seguridad', name: 'Consultores de Seguridad Contra Incendios' },
+      { id: 'corredores-negocios', name: 'Corredores de Negocios' },
+      { id: 'equipos-limpieza', name: 'Equipos y Servicios de Limpieza' },
+      { id: 'estudios-impresion', name: 'Estudios de Impresión' },
+      { id: 'estudios-mercado', name: 'Estudios de Mercado' },
+      { id: 'estudios-publicidad', name: 'Estudios de Publicidad' },
+      { id: 'formacion-empresarial', name: 'Formación Empresarial' },
+      { id: 'negocios-extranjero', name: 'Negocios en el Extranjero' },
+      { id: 'pequeno-negocio', name: 'Pequeño Negocio' },
+      { id: 'recursos-humanos', name: 'Recursos Humanos' },
+      { id: 'relaciones-publicas', name: 'Relaciones Públicas' },
+      { id: 'salud-seguridad-laboral', name: 'Salud y Seguridad Laboral' },
+      { id: 'servicio-secretariado', name: 'Servicio de Secretariado' },
+      { id: 'servicio-tintoreria', name: 'Servicio de Tintorería' },
+      { id: 'servicios-seguridad', name: 'Servicios de Seguridad' },
+      { id: 'servicios-venta-menor', name: 'Servicios de Venta al Por Menor' },
+      { id: 'subastador', name: 'Subastador' },
+      { id: 'subcontratacion-ventas', name: 'Subcontratación de Ventas' }
     ] 
   },
   { 
@@ -388,26 +369,157 @@ export const CATEGORIES: Category[] = [
     name: 'Servicios de Seguridad', 
     icon: 'ShieldCheck', 
     subCategories: [
-      { id: 'seguridad-privada', name: 'Seguridad privada' },
       { id: 'alarmas-camaras', name: 'Alarmas y cámaras' },
+      { id: 'control-accesos', name: 'Control de accesos' },
       { id: 'guardias', name: 'Guardias' },
       { id: 'monitoreo', name: 'Monitoreo' },
-      { id: 'control-accesos', name: 'Control de accesos' }
+      { id: 'seguridad-privada', name: 'Seguridad privada' }
     ] 
   },
   { 
-    id: 'turismo-hospitalidad', 
-    name: 'Turismo y Hospitalidad', 
+    id: 'servicios-domesticos', 
+    name: 'Servicios Domésticos', 
+    icon: 'Home', 
+    subCategories: [
+      { id: 'cuidado-adultos', name: 'Cuidado de adultos mayores' },
+      { id: 'instalaciones', name: 'Instalaciones' },
+      { id: 'lavanderia', name: 'Lavandería' },
+      { id: 'limpieza-casas', name: 'Limpieza de casas' },
+      { id: 'nineras', name: 'Niñeras' },
+      { id: 'reparaciones-hogar', name: 'Reparaciones del hogar' },
+      { id: 'tecnicos-varios', name: 'Técnicos varios' }
+    ] 
+  },
+  { 
+    id: 'servicios-financieros', 
+    name: 'Servicios Financieros', 
+    icon: 'Landmark', 
+    subCategories: [
+      { id: 'asesoria-fiscal', name: 'Asesoría fiscal' },
+      { id: 'bancos', name: 'Bancos' },
+      { id: 'casas-cambio', name: 'Casas de cambio' },
+      { id: 'contadores', name: 'Contadores' },
+      { id: 'cooperativas', name: 'Cooperativas' },
+      { id: 'microcreditos', name: 'Microcréditos' },
+      { id: 'pagos-digitales', name: 'Pagos digitales' },
+      { id: 'seguros', name: 'Seguros' }
+    ] 
+  },
+  { 
+    id: 'servicios-legales', 
+    name: 'Servicios Legales', 
+    icon: 'Gavel', 
+    subCategories: [
+      { id: 'abogados', name: 'Abogados' },
+      { id: 'consultoria-legal', name: 'Consultoría legal' },
+      { id: 'mediacion-arbitraje', name: 'Mediación y arbitraje' },
+      { id: 'notarias', name: 'Notarías' }
+    ] 
+  },
+  { 
+    id: 'servicios-profesionales', 
+    name: 'Servicios Profesionales y Freelancers', 
+    icon: 'User', 
+    subCategories: [
+      { id: 'asistentes-virtuales', name: 'Asistentes virtuales' },
+      { id: 'coaches', name: 'Coaches' },
+      { id: 'consultores', name: 'Consultores' },
+      { id: 'disenadores', name: 'Diseñadores' },
+      { id: 'programadores', name: 'Programadores' },
+      { id: 'recursos-humanos', name: 'Recursos humanos' },
+      { id: 'redaccion', name: 'Redacción' },
+      { id: 'traduccion', name: 'Traducción' }
+    ] 
+  },
+  { 
+    id: 'tecnologia-electronica', 
+    name: 'Tecnología, Electrónica e Informática', 
+    icon: 'Cpu', 
+    subCategories: [
+      { id: 'alojamiento-web', name: 'Alojamiento Web' },
+      { id: 'aplicaciones-software', name: 'Aplicaciones de Software' },
+      { id: 'ciberseguridad', name: 'Ciberseguridad' },
+      { id: 'comunicaciones', name: 'Comunicaciones' },
+      { id: 'consumibles-informaticos', name: 'Consumibles Informáticos' },
+      { id: 'desarrollo-software', name: 'Desarrollo de software' },
+      { id: 'diseno-logos-flyers', name: 'Diseño de Logos, Flyers, Motion Flyers, Banners' },
+      { id: 'diseno-web', name: 'Diseño y Desarrollo Web' },
+      { id: 'formacion-informatica', name: 'Formación Informática' },
+      { id: 'hardware-informatico', name: 'Hardware Informático' },
+      { id: 'informacion-tecnologica', name: 'Información Tecnológica' },
+      { id: 'reparacion-celulares', name: 'Reparación de Celulares' },
+      { id: 'reparacion-computadoras', name: 'Reparación de Computadoras e Impresoras' },
+      { id: 'internet-redes', name: 'Servicios de internet y redes' },
+      { id: 'servicios-informaticos', name: 'Servicios Informáticos' },
+      { id: 'servicios-web', name: 'Servicios Web' },
+      { id: 'soporte-tecnico', name: 'Soporte Técnico' },
+      { id: 'tiendas-tecnologia', name: 'Tiendas de Tecnología' },
+      { id: 'venta-accesorios', name: 'Venta de Accesorios' },
+      { id: 'insumos-plotters', name: 'Venta de insumos para Plotters' }
+    ] 
+  },
+  { 
+    id: 'transporte-logistica', 
+    name: 'Transporte, Autos, Logística', 
+    icon: 'Truck', 
+    subCategories: [
+      { id: 'aeropuertos-servicios', name: 'Aeropuertos y Servicios' },
+      { id: 'agencias-viaje', name: 'Agencias de Viaje' },
+      { id: 'agentes-transportes', name: 'Agentes de Transportes' },
+      { id: 'agentes-maritimos', name: 'Agentes Marítimos y Portuarios' },
+      { id: 'auto-partes', name: 'Auto Partes Accesorios' },
+      { id: 'bicicletas', name: 'Bicicletas (tiendas especializadas)' },
+      { id: 'delivery', name: 'Delivery' },
+      { id: 'escuelas-conducir', name: 'Escuelas de Conducir' },
+      { id: 'fabricantes-vehiculos', name: 'Fabricantes de Vehículos' },
+      { id: 'gasolineras', name: 'Gasolineras' },
+      { id: 'logistica-transporte', name: 'Logística de Transporte' },
+      { id: 'motos', name: 'Motos (tiendas especializadas)' },
+      { id: 'mototaxis', name: 'Mototaxis' },
+      { id: 'mudanzas', name: 'Mudanzas' },
+      { id: 'renta-autos', name: 'Renta de Autos' },
+      { id: 'renta-buses', name: 'Renta de buses' },
+      { id: 'servicio-paqueteria', name: 'Servicio de Paquetería' },
+      { id: 'servicio-vehiculos', name: 'Servicio de Vehículos Especializado' },
+      { id: 'servicios-mensajeria', name: 'Servicios de Mensajería' },
+      { id: 'taxis', name: 'Taxis' },
+      { id: 'transporte-aereo', name: 'Transporte Aéreo de Carga' },
+      { id: 'transporte-carga', name: 'Transporte de carga' },
+      { id: 'transporte-pasajeros', name: 'Transporte de Pasajeros' },
+      { id: 'transporte-escolar', name: 'Transporte escolar' },
+      { id: 'transporte-privado', name: 'Transporte privado' },
+      { id: 'venta-vehiculos', name: 'Venta de Vehículos (concesionarios)' }
+    ] 
+  },
+  { 
+    id: 'turismo-alojamiento', 
+    name: 'Turismo y Alojamiento', 
     icon: 'Palmtree', 
     subCategories: [
-      { id: 'hoteles', name: 'Hoteles' },
-      { id: 'hostales', name: 'Hostales' },
-      { id: 'airbnb', name: 'Airbnb' },
-      { id: 'tours', name: 'Tours' },
+      { id: 'agencias-visa', name: 'Agencias tramites de Visa' },
+      { id: 'agentes-viaje', name: 'Agentes de Viaje' },
+      { id: 'alquiler-alojamiento', name: 'Alquiler de Alojamiento' },
+      { id: 'apartamentos-turisticos', name: 'Apartamentos Turísticos' },
+      { id: 'atracciones-turisticas', name: 'Atracciones Turísticas' },
+      { id: 'camping-caravanas', name: 'Camping y Caravanas' },
+      { id: 'casa-familia', name: 'Casa de Familia' },
+      { id: 'casas-rurales', name: 'Casa Rurales / Cabañas' },
+      { id: 'casas-huespedes', name: 'Casas de Huéspedes' },
+      { id: 'casas-vacaciones', name: 'Casas de Vacaciones / Airbnb' },
+      { id: 'equipo-hotel', name: 'Equipo de Hotel y Motel' },
+      { id: 'excursiones', name: 'Excursiones' },
       { id: 'guias-turisticos', name: 'Guías turísticos' },
+      { id: 'hostales', name: 'Hostales' },
+      { id: 'hoteles', name: 'Hoteles' },
+      { id: 'moteles', name: 'Moteles' },
+      { id: 'informacion-turistica', name: 'Información Turística' },
+      { id: 'lugares-visitar', name: 'Lugares para Visitar' },
+      { id: 'operadores-turisticos', name: 'Operadores Turísticos' },
+      { id: 'servicio-traducciones', name: 'Servicio de Traducciones' },
+      { id: 'souvenirs', name: 'Souvenirs' },
+      { id: 'tours', name: 'Tours' },
       { id: 'transporte-turistico', name: 'Transporte turístico' },
-      { id: 'restaurantes-tematicos', name: 'Restaurantes temáticos' },
-      { id: 'souvenirs', name: 'Souvenirs' }
+      { id: 'turismo-local', name: 'Turismo Local' }
     ] 
   }
 ];

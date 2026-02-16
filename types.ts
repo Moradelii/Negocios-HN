@@ -524,6 +524,17 @@ export const CATEGORIES: Category[] = [
       { id: 'tours', name: 'Tours' },
       { id: 'transporte-turistico', name: 'Transporte turístico' },
       { id: 'turismo-local', name: 'Turismo Local' }
-    ] 
+    ]  
   }
-];
+]; 
+
+export interface Review {
+  id: string;
+  businessId: string;
+  userName: string;
+  userEmail?: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  helpful?: number;
+}

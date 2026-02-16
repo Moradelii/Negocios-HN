@@ -2214,7 +2214,7 @@ const RegisterView = () => {
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-white/95 backdrop-blur-sm px-4 py-2 rounded-xl shadow-lg border border-slate-200">
               <p className="text-xs font-black text-[#0a2540] uppercase tracking-wider flex items-center gap-2">
                 <Icon name="Info" className="w-3.5 h-3.5 text-blue-600" />
-                Arrastra el marcador rojo
+                Arrastra el marcador azul
               </p>
             </div>
 

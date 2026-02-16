@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 // import './index.css';
 import { HashRouter, Routes, Route, Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Layout } from './components/Layout';
-import { CATEGORIES, Business, BusinessStatus, MembershipTier } from './types';
+import { Business, BusinessStatus, MembershipTier, CATEGORIES, Review } from './types';
 import { MOCK_BUSINESSES } from './constants';
 import { Icon } from './components/Icons';
 import { generateBusinessDescription } from './services/geminiService';
@@ -22,15 +22,7 @@ const icons: Record<string, any> = {
 // Firebase
 import { db, storage, auth } from './firebase';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
-import { 
-  collection, 
-  addDoc, 
-  query, 
-  onSnapshot, 
-  doc, 
-  updateDoc, 
-  deleteDoc 
-} from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, deleteDoc, orderBy, getDocs } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 
 // Importaciones de Leaflet
@@ -538,6 +530,17 @@ const BusinessDetailView = () => {
   const navigate = useNavigate();
   const bizRef = useRef<Business | null>(null);
   bizRef.current = biz;
+  
+  // Estados para Reviews
+const [reviews, setReviews] = useState<Review[]>([]);
+const [showReviewForm, setShowReviewForm] = useState(false);
+const [reviewData, setReviewData] = useState({
+  userName: '',
+  userEmail: '',
+  rating: 5,
+  comment: ''
+});
+const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   // --- Firestore listener ---
   useEffect(() => {
@@ -621,6 +624,29 @@ const BusinessDetailView = () => {
 
     return () => { cancelled = true; };
   }, [lightboxIndex]);
+  
+  // Cargar reviews del negocio
+useEffect(() => {
+  if (!id) return;
+  
+  const reviewsQuery = query(
+    collection(db, 'reviews'),
+    where('businessId', '==', id),
+    orderBy('createdAt', 'desc')
+  );
+  
+  const unsubscribe = onSnapshot(reviewsQuery, (snapshot) => {
+    const reviewsData = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as Review));
+    setReviews(reviewsData);
+  }, (error) => {
+    console.error('Error cargando reviews:', error);
+  });
+  
+  return () => unsubscribe();
+}, [id]);
   
   // Estados para el horario de edición
 const DAYS_ES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -835,6 +861,112 @@ await updateDoc(businessRef, {
     }
   };
 
+// Calcular rating promedio
+const calculateAverageRating = (): number => {
+  if (reviews.length === 0) return 5.0;
+  const sum = reviews.reduce((acc, review) => acc + review.rating, 0);
+  return Number((sum / reviews.length).toFixed(1));
+};
+
+// Componente de estrellas
+const StarRating = ({ rating, size = 'w-4 h-4', interactive = false, onChange }: { 
+  rating: number; 
+  size?: string; 
+  interactive?: boolean;
+  onChange?: (rating: number) => void;
+}) => {
+  return (
+    <div className="flex items-center gap-1">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          type="button"
+          onClick={() => interactive && onChange?.(star)}
+          disabled={!interactive}
+          className={`${interactive ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
+        >
+          <Icon 
+            name="Star" 
+            className={`${size} ${star <= rating ? 'text-yellow-400 fill-current' : 'text-slate-300'}`}
+          />
+        </button>
+      ))}
+    </div>
+  );
+};
+
+// Enviar review
+const handleSubmitReview = async () => {
+  if (!reviewData.userName.trim()) {
+    alert('Por favor ingresa tu nombre');
+    return;
+  }
+  
+  if (!reviewData.comment.trim()) {
+    alert('Por favor escribe un comentario');
+    return;
+  }
+  
+  if (!id) return;
+  
+  setIsSubmittingReview(true);
+  
+  try {
+    // 1. Agregar el review
+    await addDoc(collection(db, 'reviews'), {
+      businessId: id,
+      userName: reviewData.userName.trim(),
+      userEmail: reviewData.userEmail.trim(),
+      rating: reviewData.rating,
+      comment: reviewData.comment.trim(),
+      createdAt: new Date().toISOString(),
+      helpful: 0
+    });
+    
+    // 2. Calcular nuevo promedio
+    const allReviews = [...reviews, { rating: reviewData.rating }];
+    const newAverage = allReviews.reduce((acc, r) => acc + r.rating, 0) / allReviews.length;
+    const roundedAverage = Number(newAverage.toFixed(1));
+    
+    // 3. Actualizar el rating del negocio en Firestore
+    const businessRef = doc(db, 'negocios', id);
+    await updateDoc(businessRef, {
+      rating: roundedAverage
+    });
+    
+    // Limpiar formulario
+    setReviewData({
+      userName: '',
+      userEmail: '',
+      rating: 5,
+      comment: ''
+    });
+    
+    setShowReviewForm(false);
+    alert('¡Gracias por tu reseña!');
+  } catch (error) {
+    console.error('Error al enviar reseña:', error);
+    alert('Error al enviar la reseña. Intenta de nuevo.');
+  } finally {
+    setIsSubmittingReview(false);
+  }
+};
+
+// Formatear fecha
+const formatReviewDate = (isoDate: string): string => {
+  const date = new Date(isoDate);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) return 'Hoy';
+  if (diffDays === 1) return 'Ayer';
+  if (diffDays < 7) return `Hace ${diffDays} días`;
+  if (diffDays < 30) return `Hace ${Math.floor(diffDays / 7)} semanas`;
+  if (diffDays < 365) return `Hace ${Math.floor(diffDays / 30)} meses`;
+  return date.toLocaleDateString('es-HN', { year: 'numeric', month: 'long', day: 'numeric' });
+};
+
   return (
     <div className="animate-in slide-in-from-bottom-8 duration-500 pb-20 bg-slate-50 min-h-screen">
       <div className="relative h-[45vh] md:h-[60vh] w-full overflow-hidden">
@@ -846,7 +978,13 @@ await updateDoc(businessRef, {
         <div className="absolute bottom-16 left-6 md:left-12 right-6 z-10 space-y-3">
            <div className="flex items-center gap-3">
               <span className="px-3 py-1 bg-yellow-400 text-[#0a2540] rounded-lg text-[9px] font-black uppercase tracking-[0.2em] shadow-lg">{category?.name}</span>
-              <div className="flex items-center text-white font-black text-sm drop-shadow-md"><Icon name="Star" className="w-4 h-4 mr-1 text-yellow-400 fill-current" /> {biz.rating}</div>
+              <div className="flex items-center gap-2"><div className="flex items-center text-white font-black text-sm drop-shadow-md"><Icon name="Star" className="w-4 h-4 mr-1 text-yellow-400 fill-current" /> 
+    {calculateAverageRating()}
+  </div>
+  <span className="text-white/70 text-xs font-bold">
+    ({reviews.length} {reviews.length === 1 ? 'reseña' : 'reseñas'})
+  </span>
+</div>
            </div>
            <h2 className="text-2xl md:text-4xl lg:text-5xl font-black text-white tracking-tighter uppercase drop-shadow-2xl leading-none max-w-4xl">{biz.name}</h2>
         </div>
@@ -889,6 +1027,160 @@ await updateDoc(businessRef, {
                   </div>
                 </div>
               )}
+			  
+	{/* SECCIÓN DE REVIEWS */}
+              <div className="space-y-8 pt-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-1 h-6 bg-blue-600 rounded-full" />
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600">Reseñas</h3>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    {reviews.length} {reviews.length === 1 ? 'reseña' : 'reseñas'}
+                  </span>
+                </div>
+
+                {/* Resumen de calificación */}
+                <div className="bg-gradient-to-br from-blue-50 to-slate-50 rounded-3xl p-8 border border-blue-100">
+                  <div className="flex flex-col md:flex-row items-center gap-8">
+                    <div className="text-center">
+                      <div className="text-6xl font-black text-[#0a2540] mb-2">
+                        {calculateAverageRating()}
+                      </div>
+                      <StarRating rating={Math.round(calculateAverageRating())} size="w-6 h-6" />
+                      <p className="text-sm font-bold text-slate-500 mt-2">
+                        {reviews.length} {reviews.length === 1 ? 'reseña' : 'reseñas'}
+                      </p>
+                    </div>
+                    
+                    <div className="flex-1 w-full">
+                      <button
+                        onClick={() => setShowReviewForm(!showReviewForm)}
+                        className="w-full py-4 bg-[#0a2540] text-yellow-400 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+                      >
+                        <Icon name="MessageSquare" className="w-4 h-4" />
+                        Escribir una reseña
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Formulario de nueva reseña */}
+                {showReviewForm && (
+                  <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-lg font-black text-[#0a2540] uppercase">Nueva Reseña</h4>
+                      <button
+                        onClick={() => setShowReviewForm(false)}
+                        className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        <Icon name="X" className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-slate-400 ml-2 mb-2 block">
+                          Tu nombre *
+                        </label>
+                        <input
+                          type="text"
+                          value={reviewData.userName}
+                          onChange={(e) => setReviewData({...reviewData, userName: e.target.value})}
+                          placeholder="Nombre completo"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-4 outline-none font-bold focus:ring-2 focus:ring-blue-600/20"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-slate-400 ml-2 mb-2 block">
+                          Email (opcional)
+                        </label>
+                        <input
+                          type="email"
+                          value={reviewData.userEmail}
+                          onChange={(e) => setReviewData({...reviewData, userEmail: e.target.value})}
+                          placeholder="tu@email.com"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-4 outline-none font-bold focus:ring-2 focus:ring-blue-600/20"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-slate-400 ml-2 mb-2 block">
+                          Calificación *
+                        </label>
+                        <StarRating 
+                          rating={reviewData.rating} 
+                          size="w-8 h-8" 
+                          interactive={true}
+                          onChange={(rating) => setReviewData({...reviewData, rating})}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-slate-400 ml-2 mb-2 block">
+                          Tu opinión *
+                        </label>
+                        <textarea
+                          value={reviewData.comment}
+                          onChange={(e) => setReviewData({...reviewData, comment: e.target.value})}
+                          placeholder="Cuéntanos tu experiencia..."
+                          rows={4}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-4 outline-none font-bold resize-none focus:ring-2 focus:ring-blue-600/20"
+                        />
+                      </div>
+
+                      <button
+                        onClick={handleSubmitReview}
+                        disabled={isSubmittingReview}
+                        className="w-full py-4 bg-[#0a2540] text-yellow-400 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isSubmittingReview ? 'Enviando...' : 'Publicar Reseña'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Lista de reseñas */}
+                <div className="space-y-4">
+                  {reviews.length === 0 ? (
+                    <div className="bg-slate-50 rounded-3xl p-12 text-center border border-slate-100">
+                      <Icon name="MessageSquare" className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                      <p className="text-slate-500 font-bold">
+                        Aún no hay reseñas. ¡Sé el primero en opinar!
+                      </p>
+                    </div>
+                  ) : (
+                    reviews.map((review) => (
+                      <div key={review.id} className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-full flex items-center justify-center text-white font-black text-sm">
+                                {review.userName.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <h5 className="font-black text-[#0a2540] text-sm">
+                                  {review.userName}
+                                </h5>
+                                <p className="text-[10px] font-bold text-slate-400">
+                                  {formatReviewDate(review.createdAt)}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          <StarRating rating={review.rating} size="w-4 h-4" />
+                        </div>
+                        
+                        <p className="text-slate-600 leading-relaxed font-medium">
+                          {review.comment}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>		  
+			  
             </div>
 
             <div className="space-y-12 lg:pl-10 lg:border-l border-slate-50">
@@ -3172,14 +3464,53 @@ const AdminView = () => {
           <h2 className="text-4xl font-black text-[#0a2540] tracking-tighter uppercase leading-none">GESTIÓN MAESTRA</h2>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Panel de Control · Firebase Auth</p>
         </div>
-        <div className="flex gap-4">
-          <button onClick={exportarAExcel} className="p-4 bg-green-50 rounded-2xl text-green-600 shadow-sm hover:shadow-md transition-all" title="Exportar a Excel">
-            <Icon name="Download" className="w-5 h-5" />
-          </button>
-          <button onClick={handleLogout} className="p-4 bg-red-50 rounded-2xl text-red-600 shadow-sm hover:shadow-md transition-all flex items-center gap-2" title="Cerrar sesión">
-            <Icon name="LogOut" className="w-5 h-5" />
-          </button>
-        </div>
+<div className="flex gap-4">
+  <button onClick={exportarAExcel} className="p-4 bg-green-50 rounded-2xl text-green-600 shadow-sm hover:shadow-md transition-all" title="Exportar a Excel">
+    <Icon name="Download" className="w-5 h-5" />
+  </button>
+
+
+  <button
+    onClick={async () => {
+      if (!confirm('¿Actualizar ratings de todos los negocios?')) return;
+      
+      const businessesSnapshot = await getDocs(collection(db, 'negocios'));
+      const businesses = businessesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      let updated = 0;
+      
+      for (const business of businesses) {
+        const reviewsQuery = query(
+          collection(db, 'reviews'),
+          where('businessId', '==', business.id)
+        );
+        
+        const reviewsSnapshot = await getDocs(reviewsQuery);
+        const reviews = reviewsSnapshot.docs.map(doc => doc.data());
+        
+        if (reviews.length === 0) continue;
+        
+        const sum = reviews.reduce((acc, review) => acc + review.rating, 0);
+        const average = Number((sum / reviews.length).toFixed(1));
+        
+        const businessRef = doc(db, 'negocios', business.id);
+        await updateDoc(businessRef, { rating: average });
+        updated++;
+      }
+      
+      alert(`✅ ${updated} negocios actualizados. Recarga la página.`);
+    }}
+    className="p-4 bg-blue-50 rounded-2xl text-blue-600 shadow-sm hover:shadow-md transition-all"
+    title="Actualizar ratings"
+  >
+    <Icon name="RefreshCw" className="w-5 h-5" />
+  </button>
+ 
+
+  <button onClick={handleLogout} className="p-4 bg-red-50 rounded-2xl text-red-600 shadow-sm hover:shadow-md transition-all flex items-center gap-2" title="Cerrar sesión">
+    <Icon name="LogOut" className="w-5 h-5" />
+  </button>
+</div>
       </div>
 
       <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-x-auto">

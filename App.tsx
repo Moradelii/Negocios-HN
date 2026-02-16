@@ -7,6 +7,17 @@ import { MOCK_BUSINESSES } from './constants';
 import { Icon } from './components/Icons';
 import { generateBusinessDescription } from './services/geminiService';
 import * as XLSX from 'xlsx';
+import { 
+  // ... otros iconos existentes
+  Eye, 
+  EyeOff 
+} from 'lucide-react';
+
+const icons: Record<string, any> = {
+  // ... otros iconos existentes
+  Eye, 
+  EyeOff
+};
 
 // Firebase
 import { db, storage } from './firebase';
@@ -161,6 +172,8 @@ const uploadImageToCloudinary = async (base64Image: string, folder: string = 'bu
 
 const BusinessCard: React.FC<{ biz: Business }> = ({ biz }) => {
   const category = CATEGORIES.find(c => c.id === biz.category);
+    // Si no encuentra la categoría, mostrar "Sin categoría"
+  const categoryName = category?.name || 'Sin categoría';
   return (
     <Link 
       to={`/business/${biz.id}`}
@@ -175,7 +188,7 @@ const BusinessCard: React.FC<{ biz: Business }> = ({ biz }) => {
       </div>
       <div className="p-6 flex-grow flex flex-col">
         <div className="flex items-start justify-between mb-2">
-          <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest opacity-70">{category?.name}</span>
+          <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest opacity-70">{categoryName}</span>
           <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
             biz.status === BusinessStatus.VERIFIED ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
           }`}>
@@ -608,6 +621,98 @@ const BusinessDetailView = () => {
 
     return () => { cancelled = true; };
   }, [lightboxIndex]);
+  
+  // Estados para el horario de edición
+const DAYS_ES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+const [editSchedule, setEditSchedule] = useState(
+  DAYS_ES.map((day, i) => ({
+    day,
+    open: i < 5,
+    from: '08:00',
+    to: '17:00'
+  }))
+);
+
+const [showEditMapPicker, setShowEditMapPicker] = useState(false);
+
+const toggleEditDayOpen = (index: number) => {
+  setEditSchedule(prev => prev.map((d, i) => i === index ? { ...d, open: !d.open } : d));
+};
+
+const updateEditDayTime = (index: number, field: 'from' | 'to', value: string) => {
+  setEditSchedule(prev => prev.map((d, i) => i === index ? { ...d, [field]: value } : d));
+};
+
+const formatEditScheduleForStorage = (): string => {
+  const openDays = editSchedule.filter(d => d.open);
+  if (openDays.length === 0) return 'Cerrado';
+  
+  const groups: { days: string[], from: string, to: string }[] = [];
+  openDays.forEach(d => {
+    const last = groups[groups.length - 1];
+    if (last && last.from === d.from && last.to === d.to) {
+      last.days.push(d.day);
+    } else {
+      groups.push({ days: [d.day], from: d.from, to: d.to });
+    }
+  });
+  
+  return groups.map(g => {
+    const dayStr = g.days.length === 1 ? g.days[0] : `${g.days[0]} - ${g.days[g.days.length - 1]}`;
+    const fmt = (t: string) => {
+      const [h, m] = t.split(':').map(Number);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const h12 = h % 12 || 12;
+      return `${h12}:${m.toString().padStart(2,'0')} ${ampm}`;
+    };
+    return `${dayStr}: ${fmt(g.from)} - ${fmt(g.to)}`;
+  }).join(' | ');
+};
+
+useEffect(() => {
+  if (isEditing && biz?.hours) {
+    // Inicializar horario si es necesario
+  }
+}, [isEditing, biz?.hours]);
+
+const EditMapMarker = ({ editData, setEditData }: any) => {
+  const markerRef = useRef<L.Marker>(null);
+  const map = useMap();
+
+  useEffect(() => {
+    if (editData.lat && editData.lng) {
+      map.flyTo([editData.lat, editData.lng], 15, { duration: 1 });
+    }
+  }, [map, editData.lat, editData.lng]);
+
+  const eventHandlers = {
+    dragend: () => {
+      const marker = markerRef.current;
+      if (marker) {
+        const pos = marker.getLatLng();
+        setEditData((prev: any) => ({ ...prev, lat: pos.lat, lng: pos.lng }));
+      }
+    }
+  };
+
+  return (
+    <Marker
+      position={[editData.lat || HONDURAS_CENTER[0], editData.lng || HONDURAS_CENTER[1]]}
+      draggable={true}
+      eventHandlers={eventHandlers}
+      ref={markerRef}
+    >
+      <Popup>
+        <div className="text-center font-bold text-xs">
+          <p>Arrastra para cambiar ubicación</p>
+          <p className="text-[10px] text-slate-500 mt-1">
+            {editData.lat?.toFixed(5)}, {editData.lng?.toFixed(5)}
+          </p>
+        </div>
+      </Popup>
+    </Marker>
+  );
+};
 
   // --- Early returns (después de TODOS los hooks) ---
   if (loading) return <div className="p-20 text-center font-black text-slate-400 uppercase tracking-widest">Cargando...</div>;
@@ -685,28 +790,42 @@ const BusinessDetailView = () => {
         imageUrl = await uploadImageToCloudinary(editData.image, `businesses/${id}/${Date.now()}`);
       }
 
-      // Subir imágenes nuevas de galería que sean base64
-      const galleryUrls: string[] = [];
-      for (const img of (editData.gallery || [])) {
-        if (img.startsWith('data:')) {
-          const url = await uploadImageToCloudinary(img, `businesses/${id}/gallery_${Date.now()}_${Math.random().toString(36).slice(2,7)}`);
-          galleryUrls.push(url);
-        } else {
-          galleryUrls.push(img); // Ya es URL de Cloudinary
-        }
-      }
+	 // Subir galería si hay imágenes base64
+	 const galleryUrls = [];
+	 for (let i = 0; i < (editData.gallery || []).length; i++) {
+	 const img = (editData.gallery || [])[i];
+	 if (img.startsWith('data:')) {
+     const url = await uploadImageToCloudinary(img, `businesses/${id}/gallery_${Date.now()}_${i}`);
+     galleryUrls.push(url);
+     } else {
+     galleryUrls.push(img);
+  }
+}
 
-      await updateDoc(businessRef, {
-        name: editData.name,
-        description: editData.description,
-        address: editData.address,
-        subCategory: editData.subCategory,
-        phone: editData.phone,
-        whatsapp: editData.whatsapp,
-        image: imageUrl,
-        hours: editData.hours,
-        gallery: galleryUrls
-      });
+await updateDoc(businessRef, {
+  // Datos del propietario
+  owner: editData.owner || '',
+  dni: editData.dni || '',
+  email: editData.email || '',
+  phone: editData.phone || '',
+  // Información del negocio
+  name: editData.name || '',
+  description: editData.description || '',
+  address: editData.address || '',
+  whatsapp: editData.whatsapp || '',
+  category: editData.category || '',
+  subCategory: editData.subCategory || '',
+  // Ubicación - ESTO FALTABA
+  lat: editData.lat || HONDURAS_CENTER[0],
+  lng: editData.lng || HONDURAS_CENTER[1],
+  // Horario - usar la función de formateo
+  hours: formatEditScheduleForStorage(),
+  // Imágenes
+  image: imageUrl,
+  gallery: galleryUrls,
+  // Metadata
+  updatedAt: new Date().toISOString()
+});
       
       setIsEditing(false);
       alert("Información actualizada correctamente");
@@ -978,86 +1097,427 @@ const BusinessDetailView = () => {
       )}
 
       {isEditing && editData && (
-        <div className="fixed inset-0 bg-[#0a2540]/60 backdrop-blur-md z-[3000] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-[3.5rem] p-10 space-y-8 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-black text-[#0a2540] uppercase tracking-tighter">Editar</h2>
-              <button onClick={() => setIsEditing(false)} className="p-3 text-slate-300 hover:text-red-500"><Icon name="X" className="w-6 h-6" /></button>
-            </div>
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Foto</label>
-                <div className="flex items-center gap-5 p-5 bg-slate-50 rounded-3xl border border-slate-100">
-                  <img src={editData.image} className="w-20 h-20 rounded-2xl object-cover shadow-md" alt="" />
-                  <div className="flex-1 space-y-3">
-                    <input type="file" accept="image/*" id="edit-img" className="hidden" onChange={async (e) => {
-                      if (e.target.files?.[0]) {
-                        const reader = new FileReader();
-                        reader.onload = async () => {
-                          const compressed = await compressImage(reader.result as string);
-                          setEditData(prev => ({ ...prev, image: compressed }));
-                        };
-                        reader.readAsDataURL(e.target.files[0]);
-                      }
-                    }} />
-                    <label htmlFor="edit-img" className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-[9px] font-black uppercase cursor-pointer hover:bg-slate-50 shadow-sm inline-block">Cambiar</label>
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Nombre</label>
-                <input type="text" className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold" value={editData.name || ''} onChange={e => setEditData({...editData, name: e.target.value})} />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Descripción</label>
-                <textarea className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold h-32 resize-none" value={editData.description || ''} onChange={e => setEditData({...editData, description: e.target.value})} />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Dirección</label>
-                <input type="text" className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold" value={editData.address || ''} onChange={e => setEditData({...editData, address: e.target.value})} />
-              </div>
+  <div className="fixed inset-0 bg-[#0a2540]/60 backdrop-blur-md z-[3000] flex items-center justify-center p-4">
+    <div className="bg-white w-full max-w-4xl rounded-[3.5rem] p-10 space-y-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+      
+      {/* Header */}
+      <div className="flex justify-between items-center sticky top-0 bg-white pb-4 border-b border-slate-100">
+        <div>
+          <h2 className="text-2xl font-black text-[#0a2540] uppercase tracking-tighter">Editar Perfil</h2>
+          <p className="text-xs text-slate-500 font-medium mt-1">Actualiza la información de tu negocio</p>
+        </div>
+        <button onClick={() => setIsEditing(false)} className="p-3 text-slate-300 hover:text-red-500 transition-colors">
+          <Icon name="X" className="w-6 h-6" />
+        </button>
+      </div>
 
-              {/* GALERÍA - Editable por propietario */}
-              <div className="space-y-3 pt-2">
-                <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-2">
-                    Galería ({editData.gallery?.length || 0}/{getOwnerMaxGallery()})
-                  </label>
-                  <span className="text-[9px] font-bold text-slate-400 uppercase bg-slate-100 px-3 py-1 rounded-lg">
-                    Plan {biz?.tier?.toUpperCase()}
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                  {(editData.gallery || []).map((img, i) => (
-                    <div key={i} className="relative aspect-square rounded-2xl overflow-hidden shadow-sm group border border-slate-100">
-                      <img src={img} className="w-full h-full object-cover" alt={`Foto ${i + 1}`} />
-                      <button 
-                        type="button" 
-                        onClick={() => removeGalleryImage(i)} 
-                        className="absolute top-1.5 right-1.5 p-1 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Icon name="X" className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
-                  {(editData.gallery?.length || 0) < getOwnerMaxGallery() && (
-                    <label className="relative aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer bg-slate-50 hover:bg-blue-50 hover:border-blue-300 transition-all group">
-                      <Icon name="PlusCircle" className="text-slate-300 group-hover:text-blue-500 w-6 h-6" />
-                      <span className="text-[8px] font-black uppercase text-slate-400 mt-1 group-hover:text-blue-500">Agregar</span>
-                      <input type="file" className="hidden" accept="image/*" onChange={handleGalleryUpload} />
-                    </label>
-                  )}
-                </div>
-              </div>
+      <div className="space-y-8">
+        
+        {/* SECCIÓN 1: DATOS DEL PROPIETARIO */}
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="w-1 h-6 bg-blue-600 rounded-full" />
+            <h3 className="text-sm font-black text-[#0a2540] uppercase tracking-widest">Datos del Propietario</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Nombre del Propietario</label>
+              <input 
+                type="text" 
+                className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-blue-600/20" 
+                value={editData.owner || ''} 
+                onChange={e => setEditData({...editData, owner: e.target.value})} 
+                placeholder="Juan Pérez"
+              />
             </div>
-            <div className="flex gap-4 pt-4">
-              <button onClick={() => setIsEditing(false)} className="flex-1 py-5 bg-slate-50 text-slate-400 rounded-2xl font-black uppercase text-[10px] tracking-widest">Descartar</button>
-              <button onClick={handleSaveEdit} className="flex-1 py-5 bg-[#0a2540] text-yellow-400 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-2xl">Guardar</button>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-2">DNI</label>
+              <input 
+                type="text" 
+                className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-blue-600/20" 
+                value={editData.dni || ''} 
+                onChange={e => setEditData({...editData, dni: e.target.value})} 
+                placeholder="0000-0000-00000"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Correo Electrónico</label>
+              <input 
+                type="email" 
+                className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-blue-600/20" 
+                value={editData.email || ''} 
+                onChange={e => setEditData({...editData, email: e.target.value})} 
+                placeholder="correo@ejemplo.com"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Teléfono</label>
+              <input 
+                type="tel" 
+                className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-blue-600/20" 
+                value={editData.phone || ''} 
+                onChange={e => setEditData({...editData, phone: e.target.value})} 
+                placeholder="9999-9999"
+              />
             </div>
           </div>
         </div>
-      )}
+
+        {/* SECCIÓN 2: INFORMACIÓN DEL NEGOCIO */}
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="w-1 h-6 bg-yellow-400 rounded-full" />
+            <h3 className="text-sm font-black text-[#0a2540] uppercase tracking-widest">Información del Negocio</h3>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Foto de Portada</label>
+            <div className="flex items-center gap-5 p-5 bg-slate-50 rounded-3xl border border-slate-100">
+              <img src={editData.image} className="w-20 h-20 rounded-2xl object-cover shadow-md" alt="Portada" />
+              <div className="flex-1 space-y-3">
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  id="edit-img" 
+                  className="hidden" 
+                  onChange={async (e) => {
+                    if (e.target.files?.[0]) {
+                      const reader = new FileReader();
+                      reader.onload = async () => {
+                        const compressed = await compressImage(reader.result as string);
+                        setEditData(prev => ({ ...prev, image: compressed }));
+                      };
+                      reader.readAsDataURL(e.target.files[0]);
+                    }
+                  }} 
+                />
+                <label htmlFor="edit-img" className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-[9px] font-black uppercase cursor-pointer hover:bg-slate-50 shadow-sm inline-block transition-all">
+                  Cambiar Portada
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Nombre del Negocio</label>
+            <input 
+              type="text" 
+              className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-blue-600/20" 
+              value={editData.name || ''} 
+              onChange={e => setEditData({...editData, name: e.target.value})} 
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Descripción</label>
+            <textarea 
+              className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold h-32 resize-none outline-none focus:ring-2 focus:ring-blue-600/20" 
+              value={editData.description || ''} 
+              onChange={e => setEditData({...editData, description: e.target.value})} 
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Dirección</label>
+            <input 
+              type="text" 
+              className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-blue-600/20" 
+              value={editData.address || ''} 
+              onChange={e => setEditData({...editData, address: e.target.value})} 
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase text-slate-400 ml-2">WhatsApp</label>
+            <input 
+              type="text" 
+              className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-blue-600/20" 
+              value={editData.whatsapp || ''} 
+              onChange={e => setEditData({...editData, whatsapp: e.target.value})} 
+              placeholder="50499887766"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Categoría</label>
+              <select 
+                className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold outline-none appearance-none focus:ring-2 focus:ring-blue-600/20"
+                value={editData.category || ''}
+                onChange={e => setEditData({...editData, category: e.target.value, subCategory: ''})}
+              >
+                {CATEGORIES.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Subcategoría</label>
+              <select 
+                className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold outline-none appearance-none focus:ring-2 focus:ring-blue-600/20"
+                value={editData.subCategory || ''}
+                onChange={e => setEditData({...editData, subCategory: e.target.value})}
+              >
+                <option value="">Seleccionar subcategoría...</option>
+                {CATEGORIES.find(c => c.id === editData.category)?.subCategories.map(sub => (
+                  <option key={sub.id} value={sub.id}>{sub.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* SECCIÓN 3: HORARIO */}
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="w-1 h-6 bg-green-600 rounded-full" />
+            <h3 className="text-sm font-black text-[#0a2540] uppercase tracking-widest">Horario de Atención</h3>
+          </div>
+
+          <div className="space-y-3">
+            {editSchedule.map((day, i) => (
+              <div 
+                key={day.day} 
+                className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${
+                  day.open ? 'bg-slate-50 border-slate-200' : 'bg-slate-50/30 border-slate-100 opacity-60'
+                }`}
+              >
+                <button 
+                  type="button" 
+                  onClick={() => toggleEditDayOpen(i)}
+                  className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+                    day.open ? 'bg-blue-600' : 'bg-slate-300'
+                  }`}
+                >
+                  <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                    day.open ? 'translate-x-5' : 'translate-x-0.5'
+                  }`} />
+                </button>
+                
+                <span className={`text-[11px] font-black uppercase tracking-tight w-24 shrink-0 ${
+                  day.open ? 'text-slate-700' : 'text-slate-400'
+                }`}>
+                  {day.day}
+                </span>
+                
+                {day.open ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <select 
+                      value={day.from} 
+                      onChange={e => updateEditDayTime(i, 'from', e.target.value)}
+                      className="bg-white border border-slate-200 rounded-xl py-2 px-3 text-xs font-bold outline-none flex-1 min-w-[90px] appearance-none cursor-pointer"
+                    >
+                      {Array.from({length: 24}, (_, h) => 
+                        ['00','30'].map(m => {
+                          const val = `${h.toString().padStart(2,'0')}:${m}`;
+                          const ampm = h >= 12 ? 'PM' : 'AM';
+                          const h12 = h % 12 || 12;
+                          return <option key={val} value={val}>{h12}:{m} {ampm}</option>;
+                        })
+                      )}
+                    </select>
+                    <span className="text-[10px] font-black text-slate-400">—</span>
+                    <select 
+                      value={day.to} 
+                      onChange={e => updateEditDayTime(i, 'to', e.target.value)}
+                      className="bg-white border border-slate-200 rounded-xl py-2 px-3 text-xs font-bold outline-none flex-1 min-w-[90px] appearance-none cursor-pointer"
+                    >
+                      {Array.from({length: 24}, (_, h) => 
+                        ['00','30'].map(m => {
+                          const val = `${h.toString().padStart(2,'0')}:${m}`;
+                          const ampm = h >= 12 ? 'PM' : 'AM';
+                          const h12 = h % 12 || 12;
+                          return <option key={val} value={val}>{h12}:{m} {ampm}</option>;
+                        })
+                      )}
+                    </select>
+                  </div>
+                ) : (
+                  <span className="text-[10px] font-bold text-slate-400 italic flex-1">Cerrado este día</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* SECCIÓN 4: UBICACIÓN */}
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="w-1 h-6 bg-red-600 rounded-full" />
+            <h3 className="text-sm font-black text-[#0a2540] uppercase tracking-widest">Ubicación Geográfica</h3>
+          </div>
+
+          <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div className="flex-1">
+                <p className="text-xs font-bold text-slate-600 mb-2">
+                  Actualiza la ubicación de tu negocio en el mapa
+                </p>
+                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
+                  <Icon name="MapPin" className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Lat: {editData.lat?.toFixed(5) || 'N/A'} · Lng: {editData.lng?.toFixed(5) || 'N/A'}</span>
+                </div>
+              </div>
+            </div>
+            
+            <button
+              type="button"
+              onClick={() => setShowEditMapPicker(true)}
+              className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+            >
+              <Icon name="MapPin" className="w-4 h-4" />
+              ACTUALIZAR UBICACIÓN
+            </button>
+          </div>
+        </div>
+
+        {/* SECCIÓN 5: GALERÍA */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-1 h-6 bg-purple-600 rounded-full" />
+              <h3 className="text-sm font-black text-[#0a2540] uppercase tracking-widest">
+                Galería ({editData.gallery?.length || 0}/14)
+              </h3>
+            </div>
+            <span className="text-[9px] font-bold text-slate-400 uppercase bg-slate-100 px-3 py-1 rounded-lg">
+              Plan PLUS
+            </span>
+          </div>
+
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+            {(editData.gallery || []).map((img, i) => (
+              <div key={i} className="relative aspect-square rounded-2xl overflow-hidden shadow-sm group border border-slate-100">
+                <img src={img} className="w-full h-full object-cover" alt={`Foto ${i + 1}`} />
+                <button 
+                  type="button" 
+                  onClick={() => removeGalleryImage(i)} 
+                  className="absolute top-1.5 right-1.5 p-1 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Icon name="X" className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+            {(editData.gallery?.length || 0) < 14 && (
+              <label className="relative aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer bg-slate-50 hover:bg-blue-50 hover:border-blue-300 transition-all group">
+                <Icon name="PlusCircle" className="text-slate-300 group-hover:text-blue-500 w-6 h-6" />
+                <span className="text-[8px] font-black uppercase text-slate-400 mt-1 group-hover:text-blue-500">Agregar</span>
+                <input type="file" className="hidden" accept="image/*" onChange={handleGalleryUpload} />
+              </label>
+            )}
+          </div>
+        </div>
+
+      </div>
+
+      {/* Botones */}
+      <div className="flex gap-4 pt-4 border-t border-slate-100">
+        <button 
+          onClick={() => setIsEditing(false)} 
+          className="flex-1 py-5 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all"
+        >
+          Cancelar
+        </button>
+        <button 
+          onClick={handleSaveEdit} 
+          className="flex-1 py-5 bg-[#0a2540] text-yellow-400 rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl hover:scale-[1.02] active:scale-95 transition-all"
+        >
+          Guardar Cambios
+        </button>
+      </div>
     </div>
+  </div>
+)}
+
+{/* MODAL DEL MAPA PARA EDICIÓN */}
+{showEditMapPicker && (
+  <div className="fixed inset-0 bg-[#0a2540]/90 backdrop-blur-md z-[3001] flex items-center justify-center p-4 animate-in fade-in">
+    <div className="bg-white w-full max-w-4xl h-[80vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col">
+      
+      {/* Header */}
+      <div className="p-6 border-b border-slate-200 flex items-center justify-between">
+        <div>
+          <h3 className="text-xl font-black text-[#0a2540] uppercase tracking-tight">Actualizar Ubicación</h3>
+          <p className="text-xs text-slate-500 font-medium mt-1">Arrastra el marcador a la nueva ubicación</p>
+        </div>
+        <button
+          onClick={() => setShowEditMapPicker(false)}
+          className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
+        >
+          <Icon name="X" className="w-6 h-6" />
+        </button>
+      </div>
+
+      {/* Mapa */}
+      <div className="flex-1 relative">
+        <MapContainer
+          center={[editData.lat || HONDURAS_CENTER[0], editData.lng || HONDURAS_CENTER[1]]}
+          zoom={15}
+          style={{ height: '100%', width: '100%' }}
+          zoomControl={true}
+        >
+          <TileLayer
+            url="https://mt1.google.com/vt/lyrs=r&x={x}&y={y}&z={z}&key=AIzaSyCoUFffptAVUz4LWzIbiDfmoMmPfU2iTn8"
+            attribution='&copy; Google Maps'
+            maxZoom={20}
+          />
+          <EditMapMarker editData={editData} setEditData={setEditData} />
+        </MapContainer>
+
+        {/* Instrucciones flotantes */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-white/95 backdrop-blur-sm px-4 py-2 rounded-xl shadow-lg border border-slate-200">
+          <p className="text-xs font-black text-[#0a2540] uppercase tracking-wider flex items-center gap-2">
+            <Icon name="Info" className="w-3.5 h-3.5 text-blue-600" />
+            Arrastra el marcador rojo
+          </p>
+        </div>
+
+        {/* Botón Mi ubicación */}
+        <button
+          onClick={() => {
+            if (!navigator.geolocation) return alert('Geolocalización no soportada');
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                setEditData({...editData, lat: pos.coords.latitude, lng: pos.coords.longitude});
+              },
+              () => alert('No se pudo obtener tu ubicación')
+            );
+          }}
+          className="absolute bottom-4 right-4 z-[1000] p-4 bg-white rounded-2xl shadow-xl border border-slate-200 hover:scale-110 transition-transform"
+          title="Mi ubicación"
+        >
+          <Icon name="Navigation" className="w-6 h-6 text-blue-600" />
+        </button>
+      </div>
+
+      {/* Footer */}
+      <div className="p-6 border-t border-slate-200 bg-slate-50">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1">
+            <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Coordenadas</p>
+            <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
+              <span>Lat: {editData.lat?.toFixed(6) || 'N/A'}</span>
+              <span className="text-slate-300">|</span>
+              <span>Lng: {editData.lng?.toFixed(6) || 'N/A'}</span>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowEditMapPicker(false)}
+            className="px-8 py-4 bg-[#0a2540] text-yellow-400 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all"
+          >
+            Confirmar Ubicación
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+	</div>
   );
 };
 
@@ -1223,9 +1683,9 @@ const MarkerLayer = ({
 
         {/* Tiles: CartoDB Positron (limpio, moderno, gratuito, sin API key) */}
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          maxZoom={19}
+          url="https://mt1.google.com/vt/lyrs=r&x={x}&y={y}&z={z}&key=AIzaSyCoUFffptAVUz4LWzIbiDfmoMmPfU2iTn8"
+          attribution='&copy; Google Maps'
+          maxZoom={20}
         />
 
         {/* Volar al negocio objetivo (o a Honduras) */}
@@ -1554,6 +2014,7 @@ const RegisterView = () => {
   
   // 🔥 PLAN ÚNICO: Siempre Plan Plus
   const tier = MembershipTier.PLUS;
+  const [showPassword, setShowPassword] = useState(false);
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -1742,9 +2203,10 @@ const RegisterView = () => {
               zoomControl={true}
             >
               <TileLayer
-                url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              />
+				url="https://mt1.google.com/vt/lyrs=r&x={x}&y={y}&z={z}&key=AIzaSyCoUFffptAVUz4LWzIbiDfmoMmPfU2iTn8"
+				attribution='&copy; Google Maps'
+				maxZoom={20}
+			/>
               <DraggableMarker />
             </MapContainer>
 
@@ -2028,16 +2490,25 @@ const RegisterView = () => {
               <label className="text-[10px] font-black uppercase text-slate-400 ml-2">
                 Contraseña del Propietario * {errors.includes('ownerPassword') && <span className="text-red-500">(Requerido)</span>}
               </label>
-              <input 
-                type="password" 
-                name="ownerPassword" 
+              <div className="relative">
+            <input 
+              type={showPassword ? "text" : "password"}
+              name="ownerPassword" 
                 placeholder="Crea una contraseña para gestionar tu negocio" 
                 className={`w-full bg-slate-50 border ${errors.includes('ownerPassword') ? 'border-red-500' : 'border-slate-200'} rounded-2xl py-4 px-6 outline-none font-bold focus:ring-2 focus:ring-blue-600/20`}
                 value={formData.ownerPassword} 
                 onChange={handleInputChange} 
                 required
               />
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <Icon name={showPassword ? "EyeOff" : "Eye"} className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
             
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Categoría *</label>

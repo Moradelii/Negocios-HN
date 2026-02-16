@@ -20,7 +20,8 @@ const icons: Record<string, any> = {
 };
 
 // Firebase
-import { db, storage } from './firebase';
+import { db, storage, auth } from './firebase';
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import { 
   collection, 
   addDoc, 
@@ -50,8 +51,7 @@ const HONDURAS_CENTER: [number, number] = [14.0816, -86.8735];
 const HONDURAS_ZOOM = 8;
 
 const DB_KEY = 'negocios_hn_local_db_stable';
-const ADMIN_AUTH_KEY = 'negocios_hn_admin_session';
-const ADMIN_PASSWORD = 'Mora0105'; // TODO: Mover a variable de entorno (.env)
+
 
 const getInitialData = (): Business[] => {
   try {
@@ -2921,15 +2921,29 @@ const RegisterView = () => {
 
 // --- ADMIM VIEW (Completo con Modal de Edición Restaurado) ---
 const AdminView = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem(ADMIN_AUTH_KEY) === 'true');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState('');
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [menuAbiertoId, setMenuAbiertoId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBusiness, setEditingBusiness] = useState<Partial<Business> | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // Verificar autenticación al montar
   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setIsAuthenticated(!!user);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Cargar negocios solo si está autenticado
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    
     const q = query(collection(db, 'negocios'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(mapFirestoreToBusiness);
@@ -2938,7 +2952,7 @@ const AdminView = () => {
       console.error("Error en panel admin:", error);
     });
     return () => unsubscribe();
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -2950,19 +2964,31 @@ const AdminView = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === ADMIN_PASSWORD) { 
-      setIsAuthenticated(true); 
-      sessionStorage.setItem(ADMIN_AUTH_KEY, 'true');
-    } else { 
-      alert('Incorrecto'); 
+    setLoginError('');
+    
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      // El estado se actualizará automáticamente por onAuthStateChanged
+    } catch (error: any) {
+      console.error("Error de login:", error);
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+        setLoginError('Credenciales incorrectas');
+      } else if (error.code === 'auth/too-many-requests') {
+        setLoginError('Demasiados intentos. Intenta más tarde');
+      } else {
+        setLoginError('Error al iniciar sesión');
+      }
     }
   };
 
-  const handleLogout = () => { 
-    setIsAuthenticated(false); 
-    sessionStorage.removeItem(ADMIN_AUTH_KEY); 
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error);
+    }
   };
 
   const toggleStatus = async (id: string) => {
@@ -3055,30 +3081,104 @@ const AdminView = () => {
     XLSX.writeFile(wb, "Negocios.xlsx");
   };
 
+  // PANTALLA DE LOGIN
   if (!isAuthenticated) {
     return (
-      <div className="min-h-[70vh] flex items-center justify-center p-6 bg-slate-50">
-        <div className="w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl p-10 space-y-8 border border-slate-100">
-          <div className="text-center space-y-2"><Icon name="Lock" className="w-8 h-8 text-[#0a2540] mx-auto mb-4" /><h2 className="text-2xl font-black text-[#0a2540] uppercase">Acceso Maestro</h2></div>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <input type="password" placeholder="Contraseña" className="w-full bg-slate-50 border p-4 rounded-2xl font-bold" value={password} onChange={(e) => setPassword(e.target.value)} />
-            <button type="submit" className="w-full py-4 bg-[#0a2540] text-yellow-400 rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl">Entrar</button>
+      <div className="min-h-screen bg-gradient-to-br from-[#0a2540] to-[#1a4a6e] flex items-center justify-center p-4">
+        <div className="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Icon name="Shield" className="w-8 h-8 text-blue-600" />
+            </div>
+            <h2 className="text-3xl font-black text-[#0a2540] uppercase tracking-tighter mb-2">
+              Panel Admin
+            </h2>
+            <p className="text-slate-500 text-sm font-medium">
+              Acceso restringido · Firebase Auth
+            </p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-2">
+                Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 outline-none font-bold focus:ring-2 focus:ring-blue-600/20 transition-all"
+                placeholder="admin@negocios-hn.com"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-2">
+                Contraseña
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-6 pr-12 outline-none font-bold focus:ring-2 focus:ring-blue-600/20 transition-all"
+                  placeholder="••••••••"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <Icon name={showPassword ? "EyeOff" : "Eye"} className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {loginError && (
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 animate-in slide-in-from-top-2">
+                <div className="flex items-center gap-3">
+                  <Icon name="AlertCircle" className="w-5 h-5 text-red-600 shrink-0" />
+                  <p className="text-sm font-bold text-red-600">{loginError}</p>
+                </div>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="w-full py-5 bg-[#0a2540] text-yellow-400 rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl hover:scale-[1.02] active:scale-95 transition-all"
+            >
+              Iniciar Sesión
+            </button>
           </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-[10px] font-bold text-slate-400 flex items-center justify-center gap-2">
+              <Icon name="Lock" className="w-3 h-3" />
+              Protegido por Firebase Authentication
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
+  // PANEL ADMIN (ya autenticado)
   return (
     <div className="p-4 md:p-10 space-y-10 bg-white min-h-screen">
       <div className="flex flex-col lg:flex-row justify-between lg:items-center border-b border-slate-100 pb-10 gap-6">
         <div>
           <h2 className="text-4xl font-black text-[#0a2540] tracking-tighter uppercase leading-none">GESTIÓN MAESTRA</h2>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Panel de Control</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Panel de Control · Firebase Auth</p>
         </div>
         <div className="flex gap-4">
-          <button onClick={exportarAExcel} className="p-4 bg-green-50 rounded-2xl text-green-600 shadow-sm hover:shadow-md"><Icon name="Book" /></button>
-          <button onClick={handleLogout} className="p-4 bg-slate-50 rounded-2xl text-slate-600 shadow-sm hover:shadow-md"><Icon name="Lock" /></button>
+          <button onClick={exportarAExcel} className="p-4 bg-green-50 rounded-2xl text-green-600 shadow-sm hover:shadow-md transition-all" title="Exportar a Excel">
+            <Icon name="Download" className="w-5 h-5" />
+          </button>
+          <button onClick={handleLogout} className="p-4 bg-red-50 rounded-2xl text-red-600 shadow-sm hover:shadow-md transition-all flex items-center gap-2" title="Cerrar sesión">
+            <Icon name="LogOut" className="w-5 h-5" />
+          </button>
         </div>
       </div>
 
@@ -3227,11 +3327,11 @@ const AdminView = () => {
                 </select>
               </div>
 
-              {/* GALERÍA — Admin puede agregar, reemplazar y eliminar */}
+              {/* GALERÍA */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">
-                    Galería 14
+                    Galería ({(editingBusiness.gallery || []).length}/14)
                   </label>
                   <span className="text-[9px] font-bold text-slate-400 uppercase bg-slate-100 px-3 py-1 rounded-lg">
                     Plan PLUS
@@ -3241,9 +3341,7 @@ const AdminView = () => {
                   {(editingBusiness.gallery || []).map((img, idx) => (
                     <div key={idx} className="relative aspect-square rounded-xl overflow-hidden shadow-sm border border-slate-200 group bg-slate-50">
                       <img src={img} className="w-full h-full object-cover" alt={`Foto ${idx + 1}`} />
-                      {/* Overlay con acciones al hover */}
                       <div className="absolute inset-0 bg-[#0a2540]/60 flex flex-col items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {/* Reemplazar */}
                         <label className="px-2.5 py-1.5 bg-white/90 rounded-lg text-[8px] font-black uppercase cursor-pointer hover:bg-white flex items-center gap-1.5 shadow-sm">
                           <Icon name="Image" className="w-3 h-3 text-blue-600" />Reemplazar
                           <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
@@ -3262,7 +3360,6 @@ const AdminView = () => {
                             }
                           }} />
                         </label>
-                        {/* Eliminar */}
                         <button type="button" onClick={() => {
                           setEditingBusiness(prev => prev ? { ...prev, gallery: (prev.gallery || []).filter((_, i) => i !== idx) } : prev);
                         }} className="px-2.5 py-1.5 bg-red-500/90 text-white rounded-lg text-[8px] font-black uppercase flex items-center gap-1.5 hover:bg-red-600 shadow-sm">
@@ -3271,7 +3368,6 @@ const AdminView = () => {
                       </div>
                     </div>
                   ))}
-                  {/* Slot para agregar nueva imagen */}
                   {(editingBusiness.gallery || []).length < 14 && (
                     <label className="relative aspect-square rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer bg-slate-50 hover:bg-blue-50 hover:border-blue-300 transition-all group">
                       <Icon name="PlusCircle" className="text-slate-300 group-hover:text-blue-500 w-5 h-5" />
@@ -3294,10 +3390,10 @@ const AdminView = () => {
             </div>
 
             <div className="flex gap-4 pt-4">
-              <button onClick={() => setIsModalOpen(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs tracking-widest">
+              <button onClick={() => setIsModalOpen(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all">
                 Cancelar
               </button>
-              <button onClick={handleSaveEdit} className="flex-1 py-4 bg-[#0a2540] text-yellow-400 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl">
+              <button onClick={handleSaveEdit} className="flex-1 py-4 bg-[#0a2540] text-yellow-400 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all">
                 Guardar Cambios
               </button>
             </div>

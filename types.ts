@@ -30,6 +30,9 @@ export interface Business {
   address: string;
   phone: string;
   whatsapp: string;
+  owner?: string;
+  dni?: string;
+  email?: string;
   image: string;
   status: BusinessStatus;
   featured: boolean;
